@@ -1,0 +1,29 @@
+services:
+  dev:
+    hostname: api_auth_dev
+    container_name: api_auth_dev
+    build:
+      context: .
+      dockerfile: docker/development.dockerfile
+    env_file:
+      - ./.env
+    volumes:
+      - .:/app
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    network_mode: "host"
+    command: ["air"]
+  prod:
+    hostname: api_auth_prod
+    container_name: api_auth_prod
+    build:
+      context: .
+      dockerfile: docker/production.dockerfile
+    env_file:
+      - ./.env
+    volumes:
+      - .:/build
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    network_mode: "host"
+    command: ["/api"]
