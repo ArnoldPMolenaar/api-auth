@@ -43,8 +43,8 @@ func IsPhoneNumberAvailable(phoneNumber *string) (bool, error) {
 	}
 }
 
-// UsernamePasswordSignup method to create a new user.
-func UsernamePasswordSignup(signUp *requests.Signup) (responses.Signup, error) {
+// Signup method to create a new user.
+func Signup(signUp *requests.Signup) (responses.Signup, error) {
 	var err error
 	var isTempPassword bool
 	var response responses.Signup

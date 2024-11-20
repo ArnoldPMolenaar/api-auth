@@ -54,7 +54,7 @@ func Signup(c *fiber.Ctx) error {
 	}
 
 	// Create a new user.
-	if user, err := services.UsernamePasswordSignup(signUp); err != nil {
+	if user, err := services.Signup(signUp); err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err.Error())
 	} else {
 		return c.JSON(user)
