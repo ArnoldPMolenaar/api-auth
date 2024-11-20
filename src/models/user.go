@@ -1,19 +1,19 @@
 package models
 
 import (
+	"database/sql"
 	"gorm.io/gorm"
-	"time"
 )
 
 type User struct {
 	gorm.Model
-	Username        string    `gorm:"not null;unique"`
-	Email           string    `gorm:"not null;unique"`
-	PhoneNumber     string    `gorm:"not null;unique"`
-	Password        string    `gorm:"not null"`
-	EmailVerifiedAt time.Time `gorm:"null"`
-	PhoneVerifiedAt time.Time `gorm:"null"`
-	IsTempPassword  bool      `gorm:"not null;default:false"`
+	Username        string  `gorm:"not null;unique"`
+	Email           string  `gorm:"not null;unique"`
+	PhoneNumber     *string `gorm:"null;unique"`
+	Password        string  `gorm:"not null"`
+	EmailVerifiedAt sql.NullTime
+	PhoneVerifiedAt sql.NullTime
+	IsTempPassword  bool `gorm:"not null;default:false"`
 
 	// Relationships.
 	AppRecipes       []UserAppRecipe
