@@ -27,10 +27,10 @@ func main() {
 		panic(fmt.Sprintf("Could not connect to the database: %v", err))
 	}
 
+	// Register a jwt routes_util for app.
+	routes.JwtRoutes(app)
 	// Register a private routes_util for app.
 	routes.PrivateRoutes(app)
-	// Register a public routes_util for app.
-	routes.PublicRoutes(app)
 	// Register route for 404 Error.
 	routeutil.NotFoundRoute(app)
 

@@ -43,6 +43,15 @@ func IsPhoneNumberAvailable(phoneNumber *string) (bool, error) {
 	}
 }
 
+// IsUserActive method to check if a user is active.
+func IsUserActive(username string) (bool, error) {
+	if result := database.Pg.Limit(1).Find(&models.User{}, "username = ? OR email = ?", username, username); result.Error != nil {
+		return false, result.Error
+	} else {
+		return result.RowsAffected == 1, nil
+	}
+}
+
 // Signup method to create a new user.
 func Signup(signUp *requests.Signup) (responses.Signup, error) {
 	var err error
@@ -100,4 +109,19 @@ func Signup(signUp *requests.Signup) (responses.Signup, error) {
 	response.SetSignup(user)
 
 	return response, nil
+}
+
+// GetUserRecipesByUsername method to get recipes by username.
+func GetUserRecipesByUsername(username string) ([]string, error) {
+	var recipes []string
+
+	if result := database.Pg.Model(&models.User{}).
+		Joins("JOIN user_app_recipes ON user_app_recipes.user_id = users.id").
+		Select("user_app_recipes.recipe_name").
+		Where("username = ?", username).
+		Find(&recipes); result.Error != nil {
+		return nil, result.Error
+	}
+
+	return recipes, nil
 }
