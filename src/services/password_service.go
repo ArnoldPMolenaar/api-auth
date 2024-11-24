@@ -21,8 +21,8 @@ func PasswordHash(password string) (string, error) {
 	return string(bytes), nil
 }
 
-// PasswordHashValidate validates the given password with the stored hashed password.
-func PasswordHashValidate(enteredPassword string, storedPassword string) bool {
+// PasswordCompare validates the given password with the stored hashed password.
+func PasswordCompare(enteredPassword string, storedPassword string) bool {
 	err := bcrypt.CompareHashAndPassword([]byte(storedPassword), []byte(enteredPassword))
 
 	return err == nil

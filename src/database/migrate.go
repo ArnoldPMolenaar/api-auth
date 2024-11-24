@@ -30,6 +30,14 @@ func Migrate(db *gorm.DB) error {
 		}
 	}
 
+	// Seed Recipe
+	recipes := []string{"UsernamePassword"}
+	for _, recipe := range recipes {
+		if err := db.FirstOrCreate(&models.Recipe{}, models.Recipe{Name: recipe}).Error; err != nil {
+			return err
+		}
+	}
+
 	// Seed Permission
 	permissions := []string{"Create", "Update", "Delete"}
 	for _, permission := range permissions {
@@ -38,18 +46,16 @@ func Migrate(db *gorm.DB) error {
 		}
 	}
 
-	// Seed Recipe
-	recipes := []string{"UsernamePassword"}
-	for _, recipe := range recipes {
-		if err := db.FirstOrCreate(&models.Recipe{}, models.Permission{Name: recipe}).Error; err != nil {
-			return err
-		}
-	}
-
 	// Seed Role
 	roles := []string{"SuperAdmin"}
 	for _, role := range roles {
-		if err := db.FirstOrCreate(&models.Role{}, models.Permission{Name: role}).Error; err != nil {
+		r := models.Role{Name: role}
+		for _, permission := range permissions {
+			// TODO: This does not work to connect permissions.
+			r.Permissions = append(r.Permissions, models.Permission{Name: permission})
+		}
+
+		if err := db.FirstOrCreate(&models.Role{}, r).Error; err != nil {
 			return err
 		}
 	}

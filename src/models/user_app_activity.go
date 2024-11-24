@@ -1,12 +1,14 @@
 package models
 
-import "time"
+import (
+	"database/sql"
+)
 
 type UserAppActivity struct {
 	UserID               uint   `gorm:"primaryKey:true;not null;autoIncrement:false"`
 	AppName              string `gorm:"primaryKey:true;not null;autoIncrement:false"`
-	LastLoginAt          time.Time
-	LastPasswordChangeAt time.Time
+	LastLoginAt          sql.NullTime
+	LastPasswordChangeAt sql.NullTime
 
 	// Relationships.
 	User User `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;foreignKey:UserID;references:ID"`

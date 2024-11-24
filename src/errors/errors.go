@@ -10,5 +10,8 @@ const (
 	EmailExists          = "emailExists"
 	PhoneNumberExists    = "phoneNumberExists"
 	UsernameEmailUnknown = "usernameEmailUnknown"
+	RecipeNotAllowed     = "recipeNotAllowed"
+	PasswordIncorrect    = "passwordIncorrect"
+	TokenCreate          = "tokenCreate"
 	// Add more error codes as needed.
 )

@@ -23,7 +23,7 @@ func FiberMiddleware(a *fiber.App) {
 				fiber.MethodHead,
 				fiber.MethodOptions,
 			}, ","),
-			AllowHeaders:     "",
+			AllowHeaders:     "Accept,Content-Type,Authorization",
 			AllowCredentials: true,
 		}),
 

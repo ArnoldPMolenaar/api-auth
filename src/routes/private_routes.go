@@ -10,11 +10,14 @@ import (
 func PrivateRoutes(a *fiber.App) {
 	// Create private routes group.
 	route := a.Group("/v1", middleware.MachineProtected())
-	// routeUsernamePassword := route.Group("/username-password")
 
 	// Register a route for POST /v1/signup.
-	route.Post("/signup", controllers.Signup)
+	route.Post("/sign-up", controllers.SignUp)
 
 	// Register a route for GET /v1/user/recipes.
 	route.Get("/user/recipes", controllers.GetUserRecipesByUsername)
+
+	// Username-password group.
+	routeUsernamePassword := route.Group("/username-password")
+	routeUsernamePassword.Post("/sign-in", controllers.UsernamePasswordSignIn)
 }

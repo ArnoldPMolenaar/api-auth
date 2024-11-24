@@ -10,6 +10,7 @@ import (
 // GetUserRecipesByUsername method to get user recipes by username.
 func GetUserRecipesByUsername(c *fiber.Ctx) error {
 	values := c.Request().URI().QueryArgs()
+	app := string(values.Peek("app"))
 	username := string(values.Peek("username"))
 
 	// Check if user exists.
@@ -20,7 +21,7 @@ func GetUserRecipesByUsername(c *fiber.Ctx) error {
 	}
 
 	// Get user recipes.
-	if recipes, err := services.GetUserRecipesByUsername(username); err != nil {
+	if recipes, err := services.GetUserRecipesByUsername(app, username); err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err.Error())
 	} else {
 		return c.JSON(recipes)

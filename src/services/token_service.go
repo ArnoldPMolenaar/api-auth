@@ -1,6 +1,10 @@
 package services
 
 import (
+	"api-auth/main/src/claims"
+	"api-auth/main/src/enums"
+	"api-auth/main/src/models"
+	"errors"
 	"fmt"
 	"github.com/gofiber/fiber/v2/log"
 	"github.com/golang-jwt/jwt/v5"
@@ -14,14 +18,6 @@ var TokenAccessExpireMinutes int
 var TokenPasswordResetExpireMinutes int
 var TokenEmailVerificationExpireHours int
 var TokenSecretKey string
-
-type TokenType string
-
-type TokenClaims struct {
-	Id        int       `json:"id"`
-	TokenType TokenType `json:"tokenType"`
-	jwt.RegisteredClaims
-}
 
 // Initialise the environment variables needed to create tokens.
 // If initialisation fails => crash the application.
@@ -54,36 +50,89 @@ func init() {
 }
 
 // TokenCreate creates a new token with the given id, expire time, duration and token type.
-func TokenCreate(id int, expireTime int, duration time.Duration, tokenType TokenType) (string, error) {
-	iat := jwt.NewNumericDate(time.Now())
-	exp := jwt.NewNumericDate(time.Now().Add(time.Duration(expireTime) * duration))
+func TokenCreate(claim interface{}, expireTime int, duration time.Duration, tokenType enums.TokenType) (string, *jwt.NumericDate, error) {
+	iat := jwt.NewNumericDate(time.Now().UTC())
+	exp := jwt.NewNumericDate(time.Now().UTC().Add(time.Duration(expireTime) * duration))
 
-	token := jwt.NewWithClaims(jwt.GetSigningMethod("HS256"), &TokenClaims{
-		Id:        id,
-		TokenType: tokenType,
-		RegisteredClaims: jwt.RegisteredClaims{
+	var token *jwt.Token
+
+	switch tokenType {
+	case enums.Access:
+		accessClaims, ok := claim.(claims.AccessClaims)
+		if !ok {
+			return "", nil, errors.New("invalid claim type for access token")
+		}
+
+		accessClaims.RegisteredClaims = jwt.RegisteredClaims{
 			IssuedAt:  iat,
 			ExpiresAt: exp,
-		},
-	})
+		}
+		token = jwt.NewWithClaims(jwt.SigningMethodHS256, accessClaims)
+	default:
+		return "", nil, errors.New("unsupported token type")
+	}
 
 	tokenString, err := token.SignedString([]byte(TokenSecretKey))
 
-	return tokenString, err
+	return tokenString, exp, err
 }
 
 // TokenParse parses token, validates it and returns the claims from the token or an error.
-func TokenParse(tokenString string, claims jwt.Claims) error {
-	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
+func TokenParse(tokenString string, tokenType enums.TokenType) (interface{}, error) {
+	var claim jwt.Claims
+
+	switch tokenType {
+	case enums.Access:
+		claim = &claims.AccessClaims{}
+	default:
+		return nil, errors.New("unsupported token type")
+	}
+
+	token, err := jwt.ParseWithClaims(tokenString, claim, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
 		return []byte(TokenSecretKey), nil
 	})
 
-	if err != nil || !token.Valid {
-		return err
+	if err != nil {
+		return nil, err
 	}
 
-	return nil
+	if !token.Valid {
+		return nil, errors.New("invalid token")
+	}
+
+	switch payload := token.Claims.(type) {
+	case *claims.AccessClaims:
+		return payload, nil
+	default:
+		return nil, errors.New("unknown claims type")
+	}
+}
+
+// TokenRefreshValidUntil returns the time when the refresh token will expire.
+func TokenRefreshValidUntil() time.Time {
+	return time.Now().UTC().Add(time.Duration(TokenRefreshExpireHours) * time.Hour)
+}
+
+// TokenCreateAccessClaim creates a new access claim from the given user.
+func TokenCreateAccessClaim(user models.User) claims.AccessClaims {
+	claim := claims.AccessClaims{
+		Id:              int(user.ID),
+		IsEmailVerified: user.EmailVerifiedAt.Valid,
+		IsPhoneVerified: user.PhoneVerifiedAt.Valid,
+		IsTempPassword:  user.IsTempPassword,
+		Roles:           make(map[string][]string),
+		Type:            enums.Access,
+	}
+
+	for _, role := range user.AppRoles {
+		claim.Roles[role.RoleName] = make([]string, len(role.Role.Permissions))
+		for _, permission := range role.Role.Permissions {
+			claim.Roles[role.RoleName] = append(claim.Roles[role.RoleName], permission.Name)
+		}
+	}
+
+	return claim
 }

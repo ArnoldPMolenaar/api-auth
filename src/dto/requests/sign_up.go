@@ -1,7 +1,7 @@
 package requests
 
-// Signup struct for username password signup request.
-type Signup struct {
+// SignUp struct for username password signup request.
+type SignUp struct {
 	App         string   `json:"app"`
 	Username    string   `json:"username"`
 	Email       string   `json:"email"`

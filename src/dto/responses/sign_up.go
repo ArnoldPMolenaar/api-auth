@@ -2,8 +2,8 @@ package responses
 
 import "api-auth/main/src/models"
 
-// Signup struct for username password signup response.
-type Signup struct {
+// SignUp struct for username password signup response.
+type SignUp struct {
 	ID          uint     `json:"id"`
 	Username    string   `json:"username"`
 	Email       string   `json:"email"`
@@ -13,8 +13,8 @@ type Signup struct {
 	Recipes     []string `json:"recipes"`
 }
 
-// SetSignup method to set signup response from user model.
-func (u *Signup) SetSignup(user models.User) {
+// SetSignUp method to set signup response from user model.
+func (u *SignUp) SetSignUp(user models.User) {
 	u.ID = user.ID
 	u.Username = user.Username
 	u.Email = user.Email

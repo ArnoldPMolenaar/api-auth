@@ -4,8 +4,12 @@ import (
 	"api-auth/main/src/database"
 	"api-auth/main/src/dto/requests"
 	"api-auth/main/src/dto/responses"
+	"api-auth/main/src/enums"
 	"api-auth/main/src/models"
+	"database/sql"
 	"errors"
+	"github.com/google/uuid"
+	"time"
 )
 
 // IsUsernameAvailable method to check if a username is available.
@@ -52,11 +56,43 @@ func IsUserActive(username string) (bool, error) {
 	}
 }
 
-// Signup method to create a new user.
-func Signup(signUp *requests.Signup) (responses.Signup, error) {
+// HasUserRecipe method to check if a user has a recipe.
+func HasUserRecipe(app, username string, recipe enums.Recipe) (bool, error) {
+	var count int64
+
+	if result := database.Pg.Model(&models.User{}).
+		Joins("JOIN user_app_recipes ON user_app_recipes.user_id = users.id").
+		Where("username = ? AND recipe_name = ? AND app_name = ?", username, recipe, app).
+		Count(&count); result.Error != nil {
+		return false, result.Error
+	}
+
+	return count > 0, nil
+}
+
+// IsPasswordCorrect method to validate a password.
+func IsPasswordCorrect(username, password string) (bool, error) {
+	var passwordHash string
+
+	// Get the password from the user.
+	if result := database.Pg.Model(&models.User{}).
+		Select("password").
+		Where("username = ? OR email = ?", username, username).
+		Find(&passwordHash); result.Error != nil {
+		return false, result.Error
+	}
+
+	// Compare the password.
+	valid := PasswordCompare(password, passwordHash)
+
+	return valid, nil
+}
+
+// SignUp method to create a new user.
+func SignUp(signUp *requests.SignUp) (responses.SignUp, error) {
 	var err error
 	var isTempPassword bool
-	var response responses.Signup
+	var response responses.SignUp
 
 	// Generate a password if not provided.
 	if signUp.Password == "" {
@@ -106,22 +142,71 @@ func Signup(signUp *requests.Signup) (responses.Signup, error) {
 		response.Password = signUp.Password
 	}
 
-	response.SetSignup(user)
+	response.SetSignUp(user)
 
 	return response, nil
 }
 
 // GetUserRecipesByUsername method to get recipes by username.
-func GetUserRecipesByUsername(username string) ([]string, error) {
+func GetUserRecipesByUsername(app, username string) ([]string, error) {
 	var recipes []string
 
 	if result := database.Pg.Model(&models.User{}).
 		Joins("JOIN user_app_recipes ON user_app_recipes.user_id = users.id").
 		Select("user_app_recipes.recipe_name").
-		Where("username = ?", username).
+		Where("username = ? AND app_name = ?", username, app).
 		Find(&recipes); result.Error != nil {
 		return nil, result.Error
 	}
 
 	return recipes, nil
+}
+
+// GetUserByUsername method to get a user by username.
+func GetUserByUsername(username string) (models.User, error) {
+	var user models.User
+
+	if result := database.Pg.Preload("AppRoles").
+		// TODO: Crash when no permissions found.
+		// Preload("AppRoles.Permissions").
+		Find(&user, "username = ?", username); result.Error != nil {
+		return user, result.Error
+	}
+
+	return user, nil
+}
+
+// RotateRefreshToken method to rotate a refresh token.
+// It Inserts or Updates the refresh token and returns the new token.
+func RotateRefreshToken(app string, userId uint) (*models.UserAppRefreshToken, error) {
+	refreshToken := &models.UserAppRefreshToken{
+		UserID:     userId,
+		AppName:    app,
+		Token:      uuid.NewString(),
+		ValidUntil: TokenRefreshValidUntil(),
+	}
+
+	if err := database.Pg.Save(&refreshToken).Error; err != nil {
+		return nil, err
+	}
+
+	return refreshToken, nil
+}
+
+// SetLastLoginAt method to set the last login time of the user.
+func SetLastLoginAt(app string, userId uint, lastLoginAt time.Time) error {
+	// Convert time.Time to sql.NullTime
+	nullLastLoginAt := sql.NullTime{Time: lastLoginAt, Valid: !lastLoginAt.IsZero()}
+
+	activity := models.UserAppActivity{
+		UserID:      userId,
+		AppName:     app,
+		LastLoginAt: nullLastLoginAt,
+	}
+
+	if err := database.Pg.Save(&activity).Error; err != nil {
+		return err
+	}
+
+	return nil
 }
