@@ -4,6 +4,7 @@ import (
 	"api-auth/main/src/claims"
 	"api-auth/main/src/enums"
 	"api-auth/main/src/models"
+	"api-auth/main/src/utils"
 	"errors"
 	"fmt"
 	"github.com/gofiber/fiber/v2/log"
@@ -128,9 +129,10 @@ func TokenCreateAccessClaim(user models.User) claims.AccessClaims {
 	}
 
 	for _, role := range user.AppRoles {
-		claim.Roles[role.RoleName] = make([]string, len(role.Role.Permissions))
+		var roleName = utils.PascalCaseToCamelcase(role.RoleName)
+		claim.Roles[roleName] = []string{}
 		for _, permission := range role.Role.Permissions {
-			claim.Roles[role.RoleName] = append(claim.Roles[role.RoleName], permission.Name)
+			claim.Roles[roleName] = append(claim.Roles[roleName], permission.Name)
 		}
 	}
 

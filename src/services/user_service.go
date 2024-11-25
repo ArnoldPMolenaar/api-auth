@@ -166,9 +166,8 @@ func GetUserRecipesByUsername(app, username string) ([]string, error) {
 func GetUserByUsername(username string) (models.User, error) {
 	var user models.User
 
-	if result := database.Pg.Preload("AppRoles").
-		// TODO: Crash when no permissions found.
-		// Preload("AppRoles.Permissions").
+	if result := database.Pg.Debug().Preload("AppRoles").
+		Preload("AppRoles.Role.Permissions").
 		Find(&user, "username = ?", username); result.Error != nil {
 		return user, result.Error
 	}

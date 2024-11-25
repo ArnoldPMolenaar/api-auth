@@ -50,12 +50,16 @@ func Migrate(db *gorm.DB) error {
 	roles := []string{"SuperAdmin"}
 	for _, role := range roles {
 		r := models.Role{Name: role}
-		for _, permission := range permissions {
-			// TODO: This does not work to connect permissions.
-			r.Permissions = append(r.Permissions, models.Permission{Name: permission})
+		if err := db.FirstOrCreate(&models.Role{}, r).Error; err != nil {
+			return err
 		}
 
-		if err := db.FirstOrCreate(&models.Role{}, r).Error; err != nil {
+		var allPermissions []models.Permission
+		if err := db.Find(&allPermissions).Error; err != nil {
+			return err
+		}
+
+		if err := db.Model(&r).Association("Permissions").Replace(allPermissions); err != nil {
 			return err
 		}
 	}
