@@ -7,3 +7,6 @@ tmp/
 
 # Environment variables
 .env
+
+# Valkey
+data

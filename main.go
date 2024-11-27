@@ -1,6 +1,7 @@
 package main
 
 import (
+	"api-auth/main/src/cache"
 	"api-auth/main/src/configs"
 	"api-auth/main/src/database"
 	"api-auth/main/src/middleware"
@@ -26,6 +27,12 @@ func main() {
 	if err := database.OpenDBConnection(); err != nil {
 		panic(fmt.Sprintf("Could not connect to the database: %v", err))
 	}
+
+	// Open Valkey connection.
+	if err := cache.OpenValkeyConnection(); err != nil {
+		panic(fmt.Sprintf("Could not connect to the cache: %v", err))
+	}
+	defer cache.Valkey.Close()
 
 	// Register a jwt routes_util for app.
 	routes.JwtRoutes(app)
