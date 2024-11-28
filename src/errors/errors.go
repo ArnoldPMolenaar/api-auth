@@ -5,6 +5,7 @@ const (
 	BodyParse            = "bodyParse"
 	Validator            = "validator"
 	QueryError           = "queryError"
+	CacheError           = "cacheError"
 	PasswordEmpty        = "passwordEmpty"
 	UsernameExists       = "usernameExists"
 	EmailExists          = "emailExists"

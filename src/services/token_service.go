@@ -1,10 +1,12 @@
 package services
 
 import (
+	"api-auth/main/src/cache"
 	"api-auth/main/src/claims"
 	"api-auth/main/src/enums"
 	"api-auth/main/src/models"
 	"api-auth/main/src/utils"
+	"context"
 	"errors"
 	"fmt"
 	"github.com/gofiber/fiber/v2/log"
@@ -137,4 +139,46 @@ func TokenCreateAccessClaim(user models.User) claims.AccessClaims {
 	}
 
 	return claim
+}
+
+// TokenFromCache returns the token from the cache.
+func TokenFromCache(app string, userId uint) (string, error) {
+	key := tokenCacheKey(app, userId)
+	if result := cache.Valkey.Do(context.Background(), cache.Valkey.B().Get().Key(key).Build()); result.Error() != nil {
+		return "", result.Error()
+	} else {
+		if value, err := result.ToString(); err != nil {
+			return "", err
+		} else {
+			return value, nil
+		}
+	}
+}
+
+// TokenToCache saves the token to the cache.
+func TokenToCache(app string, userId uint, token string, exp time.Time) error {
+	key := tokenCacheKey(app, userId)
+	if result := cache.Valkey.Do(context.Background(), cache.Valkey.B().Set().Key(key).Value(token).Exat(exp).Build()); result.Error() != nil {
+		return result.Error()
+	} else {
+		return nil
+	}
+}
+
+func TokenExistsInCache(app string, userId uint) (bool, error) {
+	key := tokenCacheKey(app, userId)
+	if result := cache.Valkey.Do(context.Background(), cache.Valkey.B().Exists().Key(key).Build()); result.Error() != nil {
+		return false, result.Error()
+	} else {
+		if value, err := result.ToBool(); err != nil {
+			return false, err
+		} else {
+			return value, nil
+		}
+	}
+}
+
+// tokenCacheKey returns the key for the token cache.
+func tokenCacheKey(app string, userId uint) string {
+	return fmt.Sprintf("%s:%d:AccessToken", app, userId)
 }

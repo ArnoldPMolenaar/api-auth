@@ -130,7 +130,9 @@ func UsernamePasswordSignIn(c *fiber.Ctx) error {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errors.TokenCreate, err)
 	}
 
-	// TODO: Save access token to the redis cache.
+	if err = services.TokenToCache(signIn.App, user.ID, token, exp.Time); err != nil {
+		return errorutil.Response(c, fiber.StatusInternalServerError, errors.CacheError, err)
+	}
 
 	// Set user activity.
 	if err := services.SetLastLoginAt(signIn.App, user.ID, time.Now().UTC()); err != nil {
