@@ -13,3 +13,13 @@ func IsAppAvailable(app string) (bool, error) {
 		return result.RowsAffected == 1, nil
 	}
 }
+
+// GetApps returns all available app names.
+func GetApps() ([]string, error) {
+	var apps []string
+	if result := database.Pg.Model(&models.App{}).Pluck("name", &apps); result.Error != nil {
+		return nil, result.Error
+	}
+
+	return apps, nil
+}

@@ -194,9 +194,9 @@ func GetUserByID(userID uint) (models.User, error) {
 
 // RotateRefreshToken method to rotate a refresh token.
 // It Inserts or Updates the refresh token and returns the new token.
-func RotateRefreshToken(app string, userId uint) (*models.UserAppRefreshToken, error) {
+func RotateRefreshToken(app string, userID uint) (*models.UserAppRefreshToken, error) {
 	refreshToken := &models.UserAppRefreshToken{
-		UserID:     userId,
+		UserID:     userID,
 		AppName:    app,
 		Token:      uuid.NewString(),
 		ValidUntil: TokenRefreshValidUntil(),
@@ -210,12 +210,12 @@ func RotateRefreshToken(app string, userId uint) (*models.UserAppRefreshToken, e
 }
 
 // SetLastLoginAt method to set the last login time of the user.
-func SetLastLoginAt(app string, userId uint, lastLoginAt time.Time) error {
+func SetLastLoginAt(app string, userID uint, lastLoginAt time.Time) error {
 	// Convert time.Time to sql.NullTime
 	nullLastLoginAt := sql.NullTime{Time: lastLoginAt, Valid: !lastLoginAt.IsZero()}
 
 	activity := models.UserAppActivity{
-		UserID:      userId,
+		UserID:      userID,
 		AppName:     app,
 		LastLoginAt: nullLastLoginAt,
 	}
@@ -227,19 +227,28 @@ func SetLastLoginAt(app string, userId uint, lastLoginAt time.Time) error {
 	return nil
 }
 
+// DeleteRefreshToken method to delete a refresh token.
+func DeleteRefreshToken(app string, userID uint) error {
+	if result := database.Pg.Delete(&models.UserAppRefreshToken{}, "app_name = ? AND user_id = ?", app, userID); result.Error != nil {
+		return result.Error
+	}
+
+	return nil
+}
+
 // DestroyUserSessions method to destroy all user sessions.
 // This method is needed when a user is using a refresh token that is invalid.
 // By destroying all sessions, the user will be forced to sign in again.
 func DestroyUserSessions(userID uint) error {
 	// Get lists of all refresh tokens.
-	var refreshTokens []models.UserAppRefreshToken
-	if result := database.Pg.Find(&refreshTokens, "user_id = ?", userID); result.Error != nil {
-		return result.Error
+	apps, err := GetApps()
+	if err != nil {
+		return err
 	}
 
 	// Delete all access tokens from the cache.
-	for i := range refreshTokens {
-		if err := TokenDeleteFromCache(refreshTokens[i].AppName, userID); err != nil {
+	for i := range apps {
+		if err := TokenDeleteFromCache(apps[i], userID); err != nil {
 			return err
 		}
 	}

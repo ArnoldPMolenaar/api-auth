@@ -14,6 +14,9 @@ func PrivateRoutes(a *fiber.App) {
 	// Register a route for POST /v1/signup.
 	route.Post("/sign-up", controllers.SignUp)
 
+	// Register a route for POST /v1/refresh-token.
+	route.Post("/refresh-token", controllers.RefreshToken)
+
 	// Register a route for GET /v1/user/recipes.
 	route.Get("/user/recipes", controllers.GetUserRecipesByUsername)
 

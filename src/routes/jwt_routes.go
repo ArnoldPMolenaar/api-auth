@@ -12,5 +12,5 @@ func JwtRoutes(a *fiber.App) {
 	route := a.Group("/v1")
 
 	// Register a route for POST /v1/token.
-	route.Post("/token", middleware.JWTProtected(), controllers.Token)
+	route.Get("/token", middleware.JWTProtected(), controllers.Token)
 }
