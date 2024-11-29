@@ -93,11 +93,6 @@ func UsernamePasswordSignIn(c *fiber.Ctx) error {
 		return errorutil.Response(c, fiber.StatusBadRequest, errors.UsernameEmailUnknown, "Username and Email is unknown.")
 	}
 
-	// Check if password is empty.
-	if signIn.Password == "" {
-		return errorutil.Response(c, fiber.StatusBadRequest, errors.PasswordEmpty, "Password is empty.")
-	}
-
 	// Check if user has this recipe.
 	if hasRecipe, err := services.HasUserRecipe(signIn.App, signIn.Username, enums.UsernamePassword); err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err.Error())
@@ -125,12 +120,13 @@ func UsernamePasswordSignIn(c *fiber.Ctx) error {
 	}
 
 	// Generate a new access token.
-	token, exp, err := services.TokenCreate(services.TokenCreateAccessClaim(&user), services.TokenAccessExpireMinutes, time.Minute, enums.Access)
+	accessToken, exp, err := services.TokenCreate(services.TokenCreateAccessClaim(&user, signIn.App), services.TokenAccessExpireMinutes, time.Minute, enums.Access)
 	if err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errors.TokenCreate, err)
 	}
 
-	if err = services.TokenToCache(signIn.App, user.ID, token, exp.Time); err != nil {
+	// Save the token to the cache.
+	if err = services.TokenToCache(signIn.App, user.ID, accessToken, exp.Time); err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errors.CacheError, err)
 	}
 
@@ -141,7 +137,70 @@ func UsernamePasswordSignIn(c *fiber.Ctx) error {
 
 	// Create a new response.
 	response := &responses.UsernamePasswordSignIn{}
-	response.SetUsernamePasswordSignIn(&user, token, exp, refreshToken)
+	response.SetUsernamePasswordSignIn(&user, accessToken, exp, refreshToken)
+
+	return c.JSON(response)
+}
+
+func Token(c *fiber.Ctx) error {
+	// Create a new refresh token struct.
+	token := &requests.RefreshToken{}
+
+	// Check, if received JSON data is parsed.
+	if err := c.BodyParser(token); err != nil {
+		return errorutil.Response(c, fiber.StatusBadRequest, errors.BodyParse, err.Error())
+	}
+
+	// Validate token fields.
+	validate := utils.NewValidator()
+	if err := validate.Struct(token); err != nil {
+		return errorutil.Response(c, fiber.StatusBadRequest, errors.Validator, utils.ValidatorErrors(err))
+	}
+
+	// Check if refresh token exists.
+	if valid, err := services.IsRefreshTokenValid(token.UserID, token.App, token.RefreshToken); err != nil {
+		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err.Error())
+	} else if !valid {
+		// Destroy session against replay attacks.
+		if err := services.DestroyUserSessions(token.UserID); err != nil {
+			return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err.Error())
+		}
+
+		return errorutil.Response(c, fiber.StatusUnauthorized, errors.TokenRefreshInvalid, "Refresh token is invalid.")
+	}
+
+	// Get the user.
+	user, err := services.GetUserByID(token.UserID)
+	if err != nil {
+		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err)
+	}
+
+	// Generate a new refresh token.
+	refreshToken, err := services.RotateRefreshToken(token.App, user.ID)
+	if err != nil {
+		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err)
+	}
+
+	// Generate a new access token.
+	accessToken, exp, err := services.TokenCreate(services.TokenCreateAccessClaim(&user, token.App), services.TokenAccessExpireMinutes, time.Minute, enums.Access)
+	if err != nil {
+		return errorutil.Response(c, fiber.StatusInternalServerError, errors.TokenCreate, err)
+	}
+
+	// Save the token to the cache.
+	if err = services.TokenToCache(token.App, user.ID, accessToken, exp.Time); err != nil {
+		return errorutil.Response(c, fiber.StatusInternalServerError, errors.CacheError, err)
+	}
+
+	// Set user activity.
+	if err := services.SetLastLoginAt(token.App, user.ID, time.Now().UTC()); err != nil {
+		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err)
+	}
+
+	// Create a new response.
+	response := &responses.RefreshToken{}
+	response.SetAccessToken(accessToken, exp)
+	response.SetRefreshToken(refreshToken)
 
 	return c.JSON(response)
 }

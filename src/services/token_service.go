@@ -81,7 +81,7 @@ func TokenCreate(claim interface{}, expireTime int, duration time.Duration, toke
 }
 
 // TokenParse parses token, validates it and returns the claims from the token or an error.
-func TokenParse(tokenString string, tokenType enums.TokenType) (interface{}, error) {
+func TokenParse(accessToken string, tokenType enums.TokenType) (interface{}, error) {
 	var claim jwt.Claims
 
 	switch tokenType {
@@ -91,7 +91,7 @@ func TokenParse(tokenString string, tokenType enums.TokenType) (interface{}, err
 		return nil, errors.New("unsupported token type")
 	}
 
-	token, err := jwt.ParseWithClaims(tokenString, claim, func(token *jwt.Token) (interface{}, error) {
+	token, err := jwt.ParseWithClaims(accessToken, claim, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
@@ -120,9 +120,10 @@ func TokenRefreshValidUntil() time.Time {
 }
 
 // TokenCreateAccessClaim creates a new access claim from the given user.
-func TokenCreateAccessClaim(user *models.User) claims.AccessClaims {
+func TokenCreateAccessClaim(user *models.User, app string) claims.AccessClaims {
 	claim := claims.AccessClaims{
 		Id:              int(user.ID),
+		App:             app,
 		IsEmailVerified: user.EmailVerifiedAt.Valid,
 		IsPhoneVerified: user.PhoneVerifiedAt.Valid,
 		IsTempPassword:  user.IsTempPassword,
@@ -142,8 +143,8 @@ func TokenCreateAccessClaim(user *models.User) claims.AccessClaims {
 }
 
 // TokenFromCache returns the token from the cache.
-func TokenFromCache(app string, userId uint) (string, error) {
-	key := tokenCacheKey(app, userId)
+func TokenFromCache(app string, userID uint) (string, error) {
+	key := tokenCacheKey(app, userID)
 	if result := cache.Valkey.Do(context.Background(), cache.Valkey.B().Get().Key(key).Build()); result.Error() != nil {
 		return "", result.Error()
 	} else {
@@ -156,8 +157,8 @@ func TokenFromCache(app string, userId uint) (string, error) {
 }
 
 // TokenToCache saves the token to the cache.
-func TokenToCache(app string, userId uint, token string, exp time.Time) error {
-	key := tokenCacheKey(app, userId)
+func TokenToCache(app string, userID uint, token string, exp time.Time) error {
+	key := tokenCacheKey(app, userID)
 	if result := cache.Valkey.Do(context.Background(), cache.Valkey.B().Set().Key(key).Value(token).Exat(exp).Build()); result.Error() != nil {
 		return result.Error()
 	} else {
@@ -165,20 +166,31 @@ func TokenToCache(app string, userId uint, token string, exp time.Time) error {
 	}
 }
 
-func TokenExistsInCache(app string, userId uint) (bool, error) {
-	key := tokenCacheKey(app, userId)
+// TokenDeleteFromCache deletes the token from the cache.
+func TokenDeleteFromCache(app string, userID uint) error {
+	key := tokenCacheKey(app, userID)
+	if result := cache.Valkey.Do(context.Background(), cache.Valkey.B().Del().Key(key).Build()); result.Error() != nil {
+		return result.Error()
+	} else {
+		return nil
+	}
+}
+
+// TokenExistsInCache checks if the token exists in the cache.
+func TokenExistsInCache(app string, userID uint) (bool, error) {
+	key := tokenCacheKey(app, userID)
 	if result := cache.Valkey.Do(context.Background(), cache.Valkey.B().Exists().Key(key).Build()); result.Error() != nil {
 		return false, result.Error()
 	} else {
-		if value, err := result.ToBool(); err != nil {
+		if value, err := result.ToInt64(); err != nil {
 			return false, err
 		} else {
-			return value, nil
+			return value == 1, nil
 		}
 	}
 }
 
 // tokenCacheKey returns the key for the token cache.
-func tokenCacheKey(app string, userId uint) string {
-	return fmt.Sprintf("%s:%d:AccessToken", app, userId)
+func tokenCacheKey(app string, userID uint) string {
+	return fmt.Sprintf("%s:%d:AccessToken", app, userID)
 }

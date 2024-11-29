@@ -1,11 +1,16 @@
 package routes
 
 import (
+	"api-auth/main/src/controllers"
+	"api-auth/main/src/middleware"
 	"github.com/gofiber/fiber/v2"
 )
 
 // JwtRoutes func for describe group of private routes.
 func JwtRoutes(a *fiber.App) {
 	// Create protected routes group.
-	// route := a.Group("/v1")
+	route := a.Group("/v1")
+
+	// Register a route for POST /v1/token.
+	route.Post("/token", middleware.JWTProtected(), controllers.Token)
 }

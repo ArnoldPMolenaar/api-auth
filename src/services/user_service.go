@@ -7,17 +7,12 @@ import (
 	"api-auth/main/src/enums"
 	"api-auth/main/src/models"
 	"database/sql"
-	"errors"
 	"github.com/google/uuid"
 	"time"
 )
 
 // IsUsernameAvailable method to check if a username is available.
 func IsUsernameAvailable(username string) (bool, error) {
-	if username == "" {
-		return false, errors.New("username is required")
-	}
-
 	if result := database.Pg.Limit(1).Find(&models.User{}, "username = ?", username); result.Error != nil {
 		return false, result.Error
 	} else {
@@ -27,10 +22,6 @@ func IsUsernameAvailable(username string) (bool, error) {
 
 // IsEmailAvailable method to check if an email is available.
 func IsEmailAvailable(email string) (bool, error) {
-	if email == "" {
-		return false, errors.New("email is required")
-	}
-
 	if result := database.Pg.Limit(1).Find(&models.User{}, "email = ?", email); result.Error != nil {
 		return false, result.Error
 	} else {
@@ -86,6 +77,19 @@ func IsPasswordCorrect(username, password string) (bool, error) {
 	valid := PasswordCompare(password, passwordHash)
 
 	return valid, nil
+}
+
+// IsRefreshTokenValid method to check if a refresh token is valid.
+func IsRefreshTokenValid(userID uint, app, refreshToken string) (bool, error) {
+	var count int64
+
+	if result := database.Pg.Model(&models.UserAppRefreshToken{}).
+		Where("user_id = ? AND app_name = ? AND token = ? AND valid_until > ?", userID, app, refreshToken, time.Now().UTC()).
+		Count(&count); result.Error != nil {
+		return false, result.Error
+	}
+
+	return count > 0, nil
 }
 
 // SignUp method to create a new user.
@@ -166,9 +170,22 @@ func GetUserRecipesByUsername(app, username string) ([]string, error) {
 func GetUserByUsername(username string) (models.User, error) {
 	var user models.User
 
-	if result := database.Pg.Debug().Preload("AppRoles").
+	if result := database.Pg.Preload("AppRoles").
 		Preload("AppRoles.Role.Permissions").
 		Find(&user, "username = ?", username); result.Error != nil {
+		return user, result.Error
+	}
+
+	return user, nil
+}
+
+// GetUserByID method to get a user by ID.
+func GetUserByID(userID uint) (models.User, error) {
+	var user models.User
+
+	if result := database.Pg.Preload("AppRoles").
+		Preload("AppRoles.Role.Permissions").
+		Find(&user, "id = ?", userID); result.Error != nil {
 		return user, result.Error
 	}
 
@@ -205,6 +222,31 @@ func SetLastLoginAt(app string, userId uint, lastLoginAt time.Time) error {
 
 	if err := database.Pg.Save(&activity).Error; err != nil {
 		return err
+	}
+
+	return nil
+}
+
+// DestroyUserSessions method to destroy all user sessions.
+// This method is needed when a user is using a refresh token that is invalid.
+// By destroying all sessions, the user will be forced to sign in again.
+func DestroyUserSessions(userID uint) error {
+	// Get lists of all refresh tokens.
+	var refreshTokens []models.UserAppRefreshToken
+	if result := database.Pg.Find(&refreshTokens, "user_id = ?", userID); result.Error != nil {
+		return result.Error
+	}
+
+	// Delete all access tokens from the cache.
+	for i := range refreshTokens {
+		if err := TokenDeleteFromCache(refreshTokens[i].AppName, userID); err != nil {
+			return err
+		}
+	}
+
+	// Delete all refresh tokens.
+	if result := database.Pg.Delete(&models.UserAppRefreshToken{}, "user_id = ?", userID); result.Error != nil {
+		return result.Error
 	}
 
 	return nil

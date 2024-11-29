@@ -1,18 +1,12 @@
 package services
 
 import (
-	customerr "api-auth/main/src/errors"
-	"errors"
 	gopassword "github.com/sethvargo/go-password/password"
 	"golang.org/x/crypto/bcrypt"
 )
 
 // PasswordHash generates a bcrypt hash from the given password.
 func PasswordHash(password string) (string, error) {
-	if password == "" {
-		return "", errors.New(customerr.PasswordEmpty)
-	}
-
 	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 10)
 	if err != nil {
 		return "", err

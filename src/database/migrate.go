@@ -47,7 +47,7 @@ func Migrate(db *gorm.DB) error {
 	}
 
 	// Seed Role
-	roles := []string{"SuperAdmin"}
+	roles := []string{"SuperAdmin", "Blocked"}
 	for _, role := range roles {
 		r := models.Role{Name: role}
 		if err := db.FirstOrCreate(&models.Role{}, r).Error; err != nil {
