@@ -254,3 +254,11 @@ func RefreshToken(c *fiber.Ctx) error {
 
 	return c.JSON(response)
 }
+
+// TokenVerify method to verify the token.
+// This endpoint is empty, because the middleware already verified the token.
+// It is only used to validate the active cache session.
+// This endpoint needs to be empty and very fast.
+func TokenVerify(c *fiber.Ctx) error {
+	return c.SendStatus(fiber.StatusNoContent)
+}

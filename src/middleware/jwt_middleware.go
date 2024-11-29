@@ -83,6 +83,23 @@ func JWTProtected() func(*fiber.Ctx) error {
 			)
 		}
 
+		// Check if token is equal to the one in the cache.
+		if token, err := services.TokenFromCache(accessClaims.App, uint(accessClaims.Id)); err != nil {
+			return errorsutil.Response(
+				c,
+				fiber.StatusInternalServerError,
+				errorint.CacheError,
+				err.Error(),
+			)
+		} else if token != accessToken {
+			return errorsutil.Response(
+				c,
+				fiber.StatusUnauthorized,
+				errorsutil.Unauthorized,
+				"Access token does not match.",
+			)
+		}
+
 		// Check for blocked permission
 		if accessClaims.Roles["blocked"] != nil {
 			return errorsutil.Response(
