@@ -24,7 +24,7 @@ type UsernamePasswordSignIn struct {
 
 // SetUsernamePasswordSignIn method to set username password sign-in response from user model.
 func (u *UsernamePasswordSignIn) SetUsernamePasswordSignIn(
-	user models.User,
+	user *models.User,
 	accessToken string,
 	accessTokenExpiresAt *jwt.NumericDate,
 	refreshToken *models.UserAppRefreshToken) {
@@ -57,11 +57,11 @@ func (u *UsernamePasswordSignIn) SetUsernamePasswordSignIn(
 	}
 	u.Roles = map[string][]string{}
 
-	for _, role := range user.AppRoles {
-		var roleName = utils.PascalCaseToCamelcase(role.RoleName)
+	for i := range user.AppRoles {
+		var roleName = utils.PascalCaseToCamelcase(user.AppRoles[i].RoleName)
 		u.Roles[roleName] = []string{}
-		for _, permission := range role.Role.Permissions {
-			u.Roles[roleName] = append(u.Roles[roleName], permission.Name)
+		for j := range user.AppRoles[i].Role.Permissions {
+			u.Roles[roleName] = append(u.Roles[roleName], user.AppRoles[i].Role.Permissions[j].Name)
 		}
 	}
 }

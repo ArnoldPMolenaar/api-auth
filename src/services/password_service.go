@@ -3,7 +3,7 @@ package services
 import (
 	customerr "api-auth/main/src/errors"
 	"errors"
-	"github.com/sethvargo/go-password/password"
+	gopassword "github.com/sethvargo/go-password/password"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -22,15 +22,15 @@ func PasswordHash(password string) (string, error) {
 }
 
 // PasswordCompare validates the given password with the stored hashed password.
-func PasswordCompare(enteredPassword string, storedPassword string) bool {
+func PasswordCompare(enteredPassword, storedPassword string) bool {
 	err := bcrypt.CompareHashAndPassword([]byte(storedPassword), []byte(enteredPassword))
 
 	return err == nil
 }
 
 // PasswordGenerate generates a random password with a given length, amount of numbers and amount of symbols.
-func PasswordGenerate(length int, numDigits int, numSymbols int) (string, error) {
-	pass, err := password.Generate(length, numDigits, numSymbols, false, false)
+func PasswordGenerate(length, numDigits, numSymbols int) (string, error) {
+	pass, err := gopassword.Generate(length, numDigits, numSymbols, false, false)
 	if err != nil {
 		return "", err
 	}

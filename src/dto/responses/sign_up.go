@@ -14,7 +14,7 @@ type SignUp struct {
 }
 
 // SetSignUp method to set signup response from user model.
-func (u *SignUp) SetSignUp(user models.User) {
+func (u *SignUp) SetSignUp(user *models.User) {
 	u.ID = user.ID
 	u.Username = user.Username
 	u.Email = user.Email
@@ -22,11 +22,11 @@ func (u *SignUp) SetSignUp(user models.User) {
 	u.Roles = []string{}
 	u.Recipes = []string{}
 
-	for _, role := range user.AppRoles {
-		u.Roles = append(u.Roles, role.RoleName)
+	for i := range user.AppRoles {
+		u.Roles = append(u.Roles, user.AppRoles[i].RoleName)
 	}
 
-	for _, recipe := range user.AppRecipes {
-		u.Recipes = append(u.Recipes, recipe.RecipeName)
+	for i := range user.AppRecipes {
+		u.Recipes = append(u.Recipes, user.AppRecipes[i].RecipeName)
 	}
 }

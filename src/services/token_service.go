@@ -120,7 +120,7 @@ func TokenRefreshValidUntil() time.Time {
 }
 
 // TokenCreateAccessClaim creates a new access claim from the given user.
-func TokenCreateAccessClaim(user models.User) claims.AccessClaims {
+func TokenCreateAccessClaim(user *models.User) claims.AccessClaims {
 	claim := claims.AccessClaims{
 		Id:              int(user.ID),
 		IsEmailVerified: user.EmailVerifiedAt.Valid,
@@ -130,11 +130,11 @@ func TokenCreateAccessClaim(user models.User) claims.AccessClaims {
 		Type:            enums.Access,
 	}
 
-	for _, role := range user.AppRoles {
-		var roleName = utils.PascalCaseToCamelcase(role.RoleName)
+	for i := range user.AppRoles {
+		var roleName = utils.PascalCaseToCamelcase(user.AppRoles[i].RoleName)
 		claim.Roles[roleName] = []string{}
-		for _, permission := range role.Role.Permissions {
-			claim.Roles[roleName] = append(claim.Roles[roleName], permission.Name)
+		for j := range user.AppRoles[i].Role.Permissions {
+			claim.Roles[roleName] = append(claim.Roles[roleName], user.AppRoles[i].Role.Permissions[j].Name)
 		}
 	}
 

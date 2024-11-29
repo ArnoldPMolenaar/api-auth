@@ -125,7 +125,7 @@ func UsernamePasswordSignIn(c *fiber.Ctx) error {
 	}
 
 	// Generate a new access token.
-	token, exp, err := services.TokenCreate(services.TokenCreateAccessClaim(user), services.TokenAccessExpireMinutes, time.Minute, enums.Access)
+	token, exp, err := services.TokenCreate(services.TokenCreateAccessClaim(&user), services.TokenAccessExpireMinutes, time.Minute, enums.Access)
 	if err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errors.TokenCreate, err)
 	}
@@ -141,7 +141,7 @@ func UsernamePasswordSignIn(c *fiber.Ctx) error {
 
 	// Create a new response.
 	response := &responses.UsernamePasswordSignIn{}
-	response.SetUsernamePasswordSignIn(user, token, exp, refreshToken)
+	response.SetUsernamePasswordSignIn(&user, token, exp, refreshToken)
 
 	return c.JSON(response)
 }

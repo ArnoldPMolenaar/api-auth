@@ -142,7 +142,7 @@ func SignUp(signUp *requests.SignUp) (responses.SignUp, error) {
 		response.Password = signUp.Password
 	}
 
-	response.SetSignUp(user)
+	response.SetSignUp(&user)
 
 	return response, nil
 }
