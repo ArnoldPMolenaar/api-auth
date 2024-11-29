@@ -14,4 +14,7 @@ func JwtRoutes(a *fiber.App) {
 	// Register a route for POST /v1/token.
 	route.Get("/token", middleware.JWTProtected(), controllers.Token)
 	route.Get("/token/verify", middleware.JWTProtected(), controllers.TokenVerify)
+
+	// Register a route for POST /v1/sign-out.
+	route.Post("/sign-out", middleware.JWTProtected(), controllers.SignOut)
 }

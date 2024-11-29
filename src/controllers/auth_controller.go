@@ -262,3 +262,30 @@ func RefreshToken(c *fiber.Ctx) error {
 func TokenVerify(c *fiber.Ctx) error {
 	return c.SendStatus(fiber.StatusNoContent)
 }
+
+// SignOut method to sign out the user.
+// Also deletes the refresh-token because of explicit sign-out.
+func SignOut(c *fiber.Ctx) error {
+	// Get app and userID from claims.
+	claim := c.Locals("claims")
+	if claim == nil {
+		return errorutil.Response(c, fiber.StatusUnauthorized, errorutil.Unauthorized, "Claims not found.")
+	}
+
+	accessClaims, ok := claim.(*claims.AccessClaims)
+	if !ok {
+		return errorutil.Response(c, fiber.StatusUnauthorized, errorutil.Unauthorized, "Invalid claims type.")
+	}
+
+	// Delete the refresh token.
+	if err := services.DeleteRefreshToken(accessClaims.App, uint(accessClaims.Id)); err != nil {
+		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err)
+	}
+
+	// Delete the access token from the cache.
+	if err := services.TokenDeleteFromCache(accessClaims.App, uint(accessClaims.Id)); err != nil {
+		return errorutil.Response(c, fiber.StatusInternalServerError, errors.CacheError, err)
+	}
+
+	return c.SendStatus(fiber.StatusNoContent)
+}
