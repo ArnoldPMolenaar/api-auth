@@ -185,6 +185,8 @@ func GetUserByID(userID uint) (models.User, error) {
 
 	if result := database.Pg.Preload("AppRoles").
 		Preload("AppRoles.Role.Permissions").
+		Preload("AppRecipes").
+		Preload("AppActivity").
 		Find(&user, "id = ?", userID); result.Error != nil {
 		return user, result.Error
 	}

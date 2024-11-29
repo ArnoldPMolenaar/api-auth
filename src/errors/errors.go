@@ -17,5 +17,7 @@ const (
 	TokenNoBearerAuthorizationHeaderFormat = "tokenNoBearerAuthorizationHeaderFormat"
 	TokenExtraction                        = "tokenExtraction"
 	Forbidden                              = "forbidden"
+	MissingRequiredParam                   = "missingRequiredParam"
+	InvalidParam                           = "invalidParam"
 	// Add more error codes as needed.
 )
