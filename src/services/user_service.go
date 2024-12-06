@@ -8,6 +8,7 @@ import (
 	"api-auth/main/src/models"
 	"database/sql"
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 	"time"
 )
 
@@ -227,6 +228,80 @@ func SetLastLoginAt(app string, userID uint, lastLoginAt time.Time) error {
 	}
 
 	return nil
+}
+
+// UpdateUser method to update a user.
+func UpdateUser(user *models.User, requestUser *requests.UpdateUser) (*models.User, error) {
+	user.Username = requestUser.Username
+	user.Email = requestUser.Email
+	user.PhoneNumber = requestUser.PhoneNumber
+	user.UpdatedAt = time.Now().UTC()
+
+	// Create a map of roles and recipes to check for duplicates.
+	rolesMap := make(map[string]map[string]bool)
+	recipesMap := make(map[string]map[string]bool)
+	for i := range requestUser.Roles {
+		if _, ok := rolesMap[requestUser.Roles[i].App]; !ok {
+			rolesMap[requestUser.Roles[i].App] = make(map[string]bool)
+		}
+		rolesMap[requestUser.Roles[i].App][requestUser.Roles[i].Role] = true
+	}
+	for i := range requestUser.Recipes {
+		if _, ok := recipesMap[requestUser.Recipes[i].App]; !ok {
+			recipesMap[requestUser.Recipes[i].App] = make(map[string]bool)
+		}
+		recipesMap[requestUser.Recipes[i].App][requestUser.Recipes[i].Recipe] = true
+	}
+
+	err := database.Pg.Transaction(func(tx *gorm.DB) error {
+		// Update the user roles.
+		for i := range user.AppRoles {
+			if _, ok := rolesMap[user.AppRoles[i].AppName][user.AppRoles[i].RoleName]; !ok {
+				if result := database.Pg.Delete(&user.AppRoles[i]); result.Error != nil {
+					return result.Error
+				}
+			}
+		}
+		for i := range user.AppRecipes {
+			if _, ok := recipesMap[user.AppRecipes[i].AppName][user.AppRecipes[i].RecipeName]; !ok {
+				if result := database.Pg.Delete(&user.AppRecipes[i]); result.Error != nil {
+					return result.Error
+				}
+			}
+		}
+
+		// Update the user roles.
+		user.AppRoles = []models.UserAppRole{}
+		for i := range requestUser.Roles {
+			user.AppRoles = append(user.AppRoles, models.UserAppRole{
+				UserID:   user.ID,
+				AppName:  requestUser.Roles[i].App,
+				RoleName: requestUser.Roles[i].Role,
+			})
+		}
+
+		// Update the user recipes.
+		user.AppRecipes = []models.UserAppRecipe{}
+		for i := range requestUser.Recipes {
+			user.AppRecipes = append(user.AppRecipes, models.UserAppRecipe{
+				UserID:     user.ID,
+				AppName:    requestUser.Recipes[i].App,
+				RecipeName: requestUser.Recipes[i].Recipe,
+			})
+		}
+
+		if err := database.Pg.Save(&user).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return user, nil
 }
 
 // DeleteRefreshToken method to delete a refresh token.

@@ -1,11 +1,13 @@
 package controllers
 
 import (
+	"api-auth/main/src/dto/requests"
 	"api-auth/main/src/dto/responses"
 	"api-auth/main/src/errors"
 	"api-auth/main/src/services"
 	"api-auth/main/src/utils"
 	errorutil "github.com/ArnoldPMolenaar/api-utils/errors"
+	util "github.com/ArnoldPMolenaar/api-utils/utils"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -46,14 +48,97 @@ func GetUser(c *fiber.Ctx) error {
 	user, err := services.GetUserByID(userID)
 	if err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err.Error())
-	}
-	if user.ID == 0 {
+	} else if user.ID == 0 {
 		return errorutil.Response(c, fiber.StatusNotFound, errorutil.NotFound, "User not found.")
 	}
 
 	// Return the user.
 	response := responses.User{}
 	response.SetUser(&user)
+
+	return c.JSON(response)
+}
+
+func UpdateUser(c *fiber.Ctx) error {
+	// Get the userID parameter from the URL.
+	userIDParam := c.Params("id")
+	if userIDParam == "" {
+		return errorutil.Response(c, fiber.StatusBadRequest, errors.MissingRequiredParam, "User ID is required.")
+	}
+	userID, err := utils.StringToUint(userIDParam)
+	if err != nil {
+		return errorutil.Response(c, fiber.StatusBadRequest, errors.InvalidParam, "Invalid User ID.")
+	}
+
+	// Get the request body.
+	requestUser := &requests.UpdateUser{}
+	if err := c.BodyParser(requestUser); err != nil {
+		return errorutil.Response(c, fiber.StatusBadRequest, errors.BodyParse, "Invalid request body.")
+	}
+
+	// Validate user fields.
+	validate := util.NewValidator()
+	if err := validate.Struct(requestUser); err != nil {
+		return errorutil.Response(c, fiber.StatusBadRequest, errors.Validator, util.ValidatorErrors(err))
+	}
+	for _, item := range requestUser.Roles {
+		if err := validate.Struct(item); err != nil {
+			return errorutil.Response(c, fiber.StatusBadRequest, errors.Validator, util.ValidatorErrors(err))
+		}
+	}
+	for _, item := range requestUser.Recipes {
+		if err := validate.Struct(item); err != nil {
+			return errorutil.Response(c, fiber.StatusBadRequest, errors.Validator, util.ValidatorErrors(err))
+		}
+	}
+
+	// Get the user.
+	user, err := services.GetUserByID(userID)
+	if err != nil {
+		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err.Error())
+	} else if user.ID == 0 {
+		return errorutil.Response(c, fiber.StatusNotFound, errorutil.NotFound, "User not found.")
+	}
+
+	// Check if user already exists.
+	if requestUser.Username != user.Username {
+		if available, err := services.IsUsernameAvailable(requestUser.Username); err != nil {
+			return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err.Error())
+		} else if !available {
+			return errorutil.Response(c, fiber.StatusBadRequest, errors.UsernameExists, "Username already exists.")
+		}
+	}
+
+	if requestUser.Email != user.Email {
+		if available, err := services.IsEmailAvailable(requestUser.Email); err != nil {
+			return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err.Error())
+		} else if !available {
+			return errorutil.Response(c, fiber.StatusBadRequest, errors.EmailExists, "Email already exists.")
+		}
+	}
+
+	if requestUser.PhoneNumber != nil && *requestUser.PhoneNumber != *user.PhoneNumber {
+		if available, err := services.IsPhoneNumberAvailable(requestUser.PhoneNumber); err != nil {
+			return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err.Error())
+		} else if !available {
+			return errorutil.Response(c, fiber.StatusBadRequest, errors.PhoneNumberExists, "Phone already exists.")
+		}
+	}
+
+	// Check if the user data has been modified since it was last fetched.
+	if requestUser.UpdatedAt.Unix() < user.UpdatedAt.Unix() {
+		return errorutil.Response(c, fiber.StatusBadRequest, errors.OutOfSync, "Data is out of sync.")
+	}
+
+	// Update the user.
+	updatedUser, err := services.UpdateUser(&user, requestUser)
+	if err != nil {
+		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err.Error())
+	}
+
+	// Return the user.
+	response := responses.User{}
+	response.SetUser(updatedUser)
 
 	return c.JSON(response)
 }

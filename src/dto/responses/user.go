@@ -2,7 +2,6 @@ package responses
 
 import (
 	"api-auth/main/src/models"
-	"api-auth/main/src/utils"
 	"time"
 )
 
@@ -13,18 +12,18 @@ type UserActivity struct {
 }
 
 type User struct {
-	ID              uint                `json:"id"`
-	Username        string              `json:"username"`
-	Email           string              `json:"email"`
-	PhoneNumber     *string             `json:"phoneNumber"`
-	IsTempPassword  bool                `json:"isTempPassword"`
-	EmailVerifiedAt *time.Time          `json:"emailVerifiedAt"`
-	PhoneVerifiedAt *time.Time          `json:"phoneVerifiedAt"`
-	CreatedAt       time.Time           `json:"createdAt"`
-	UpdatedAt       time.Time           `json:"updatedAt"`
-	Roles           map[string][]string `json:"roles"`
-	Recipes         []string            `json:"recipes"`
-	Activities      []UserActivity      `json:"activities"`
+	ID              uint           `json:"id"`
+	Username        string         `json:"username"`
+	Email           string         `json:"email"`
+	PhoneNumber     *string        `json:"phoneNumber"`
+	IsTempPassword  bool           `json:"isTempPassword"`
+	EmailVerifiedAt *time.Time     `json:"emailVerifiedAt"`
+	PhoneVerifiedAt *time.Time     `json:"phoneVerifiedAt"`
+	CreatedAt       time.Time      `json:"createdAt"`
+	UpdatedAt       time.Time      `json:"updatedAt"`
+	Roles           []AppRole      `json:"roles"`
+	Recipes         []AppRecipe    `json:"recipes"`
+	Activities      []UserActivity `json:"activities"`
 }
 
 // SetUser method to set user data from models.User{}.
@@ -48,22 +47,24 @@ func (u *User) SetUser(user *models.User) {
 	}()
 	u.CreatedAt = user.CreatedAt
 	u.UpdatedAt = user.UpdatedAt
-	u.Roles = map[string][]string{}
-	u.Recipes = []string{}
+	u.Roles = []AppRole{}
+	u.Recipes = []AppRecipe{}
 	u.Activities = []UserActivity{}
 
 	// Set user roles.
 	for i := range user.AppRoles {
-		var roleName = utils.PascalCaseToCamelcase(user.AppRoles[i].RoleName)
-		u.Roles[roleName] = []string{}
-		for j := range user.AppRoles[i].Role.Permissions {
-			u.Roles[roleName] = append(u.Roles[roleName], user.AppRoles[i].Role.Permissions[j].Name)
-		}
+		u.Roles = append(u.Roles, AppRole{
+			App:  user.AppRoles[i].AppName,
+			Role: user.AppRoles[i].RoleName,
+		})
 	}
 
 	// Set user recipes.
 	for i := range user.AppRecipes {
-		u.Recipes = append(u.Recipes, user.AppRecipes[i].RecipeName)
+		u.Recipes = append(u.Recipes, AppRecipe{
+			App:    user.AppRecipes[i].AppName,
+			Recipe: user.AppRecipes[i].RecipeName,
+		})
 	}
 
 	// Set user activity.

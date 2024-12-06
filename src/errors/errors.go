@@ -19,5 +19,6 @@ const (
 	Forbidden                              = "forbidden"
 	MissingRequiredParam                   = "missingRequiredParam"
 	InvalidParam                           = "invalidParam"
+	OutOfSync                              = "outOfSync"
 	// Add more error codes as needed.
 )
