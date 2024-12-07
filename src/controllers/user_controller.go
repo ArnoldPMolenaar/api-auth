@@ -1,12 +1,15 @@
 package controllers
 
 import (
+	"api-auth/main/src/database"
 	"api-auth/main/src/dto/requests"
 	"api-auth/main/src/dto/responses"
 	"api-auth/main/src/errors"
+	"api-auth/main/src/models"
 	"api-auth/main/src/services"
 	"api-auth/main/src/utils"
 	errorutil "github.com/ArnoldPMolenaar/api-utils/errors"
+	"github.com/ArnoldPMolenaar/api-utils/pagination"
 	util "github.com/ArnoldPMolenaar/api-utils/utils"
 	"github.com/gofiber/fiber/v2"
 )
@@ -64,6 +67,53 @@ func GetUser(c *fiber.Ctx) error {
 	response.SetUser(&user)
 
 	return c.JSON(response)
+}
+
+// GetUsers function fetches all users from the database.
+func GetUsers(c *fiber.Ctx) error {
+	users := make([]models.User, 0)
+	values := c.Request().URI().QueryArgs()
+	allowedColumns := map[string]bool{
+		"id":           true,
+		"username":     true,
+		"email":        true,
+		"phone_number": true,
+		"created_at":   true,
+		"updated_at":   true,
+		"deleted_at":   true,
+	}
+
+	queryFunc := pagination.Query(values, allowedColumns)
+	sortFunc := pagination.Sort(values, allowedColumns)
+	page := c.QueryInt("page", 1)
+	if page < 1 {
+		page = 1
+	}
+	limit := c.QueryInt("limit", 10)
+	if limit < 1 {
+		limit = 10
+	}
+	offset := pagination.Offset(page, limit)
+
+	db := database.Pg.Unscoped().Scopes(queryFunc, sortFunc).Limit(limit).Offset(offset).Find(&users)
+	if db.Error != nil {
+		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, db.Error.Error())
+	}
+
+	total := int64(0)
+	database.Pg.Unscoped().Scopes(queryFunc).Model(&models.User{}).Count(&total)
+	pageCount := pagination.Count(int(total), limit)
+
+	paginatedUsers := make([]responses.PaginatedUser, 0)
+	for i := range users {
+		paginatedUser := responses.PaginatedUser{}
+		paginatedUser.SetPaginatedUser(&users[i])
+		paginatedUsers = append(paginatedUsers, paginatedUser)
+	}
+
+	paginationModel := pagination.CreatePaginationModel(limit, page, pageCount, int(total), paginatedUsers)
+
+	return c.Status(fiber.StatusOK).JSON(paginationModel)
 }
 
 // UpdateUser method to update user by ID.
