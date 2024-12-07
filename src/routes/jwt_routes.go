@@ -24,4 +24,5 @@ func JwtRoutes(a *fiber.App) {
 	route.Put("/users/:id", middleware.JWTProtected(), controllers.UpdateUser)
 	route.Delete("/users/:id", middleware.JWTProtected(), controllers.DeleteUser)
 	route.Put("/users/:id/password", middleware.JWTProtected(), controllers.UpdateUserPassword)
+	route.Put("/users/:id/restore", middleware.JWTProtected(), controllers.RestoreUser)
 }

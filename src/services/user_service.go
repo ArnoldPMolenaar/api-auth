@@ -181,14 +181,19 @@ func GetUserByUsername(username string) (models.User, error) {
 }
 
 // GetUserByID method to get a user by ID.
-func GetUserByID(userID uint) (models.User, error) {
+func GetUserByID(userID uint, unscoped ...bool) (models.User, error) {
 	var user models.User
 
-	if result := database.Pg.Preload("AppRoles").
+	query := database.Pg.Preload("AppRoles").
 		Preload("AppRoles.Role.Permissions").
 		Preload("AppRecipes").
-		Preload("AppActivity").
-		Find(&user, "id = ?", userID); result.Error != nil {
+		Preload("AppActivity")
+
+	if len(unscoped) > 0 && unscoped[0] {
+		query = query.Unscoped()
+	}
+
+	if result := query.Find(&user, "id = ?", userID); result.Error != nil {
 		return user, result.Error
 	}
 
@@ -334,6 +339,15 @@ func UpdateUserPassword(userID uint, app, password string) error {
 	return nil
 }
 
+// RestoreUser function to undo the deleted_at timestamp for a user.
+func RestoreUser(userID uint) error {
+	// Update the deleted_at field to NULL.
+	if err := database.Pg.Model(&models.User{}).Unscoped().Where("id = ?", userID).Update("deleted_at", nil).Error; err != nil {
+		return err
+	}
+	return nil
+}
+
 // DeleteRefreshToken method to delete a refresh token.
 func DeleteRefreshToken(app string, userID uint) error {
 	if result := database.Pg.Delete(&models.UserAppRefreshToken{}, "app_name = ? AND user_id = ?", app, userID); result.Error != nil {
@@ -372,6 +386,10 @@ func DestroyUserSessions(userID uint) error {
 func DeleteUser(userID uint) error {
 	if result := database.Pg.Delete(&models.User{}, userID); result.Error != nil {
 		return result.Error
+	}
+
+	if err := DestroyUserSessions(userID); err != nil {
+		return err
 	}
 
 	return nil
