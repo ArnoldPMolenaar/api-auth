@@ -8,6 +8,7 @@ const (
 	CacheError                             = "cacheError"
 	UsernameExists                         = "usernameExists"
 	EmailExists                            = "emailExists"
+	AppExists                              = "appExists"
 	PhoneNumberExists                      = "phoneNumberExists"
 	UsernameEmailUnknown                   = "usernameEmailUnknown"
 	RecipeNotAllowed                       = "recipeNotAllowed"
@@ -20,5 +21,6 @@ const (
 	MissingRequiredParam                   = "missingRequiredParam"
 	InvalidParam                           = "invalidParam"
 	OutOfSync                              = "outOfSync"
+	InvalidPassword                        = "invalidPassword"
 	// Add more error codes as needed.
 )

@@ -24,6 +24,13 @@ func GetUserRecipesByUsername(c *fiber.Ctx) error {
 		return errorutil.Response(c, fiber.StatusBadRequest, errors.UsernameEmailUnknown, "Username and Email is unknown.")
 	}
 
+	// Check if app exists.
+	if available, err := services.IsAppAvailable(app); err != nil {
+		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err.Error())
+	} else if !available {
+		return errorutil.Response(c, fiber.StatusBadRequest, errors.AppExists, "AppName does not exist.")
+	}
+
 	// Get user recipes.
 	if recipes, err := services.GetUserRecipesByUsername(app, username); err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err.Error())
@@ -142,6 +149,59 @@ func UpdateUser(c *fiber.Ctx) error {
 	response.SetUser(updatedUser)
 
 	return c.JSON(response)
+}
+
+func UpdateUserPassword(c *fiber.Ctx) error {
+	// Get the userID parameter from the URL.
+	userIDParam := c.Params("id")
+	if userIDParam == "" {
+		return errorutil.Response(c, fiber.StatusBadRequest, errors.MissingRequiredParam, "User ID is required.")
+	}
+	userID, err := utils.StringToUint(userIDParam)
+	if err != nil {
+		return errorutil.Response(c, fiber.StatusBadRequest, errors.InvalidParam, "Invalid User ID.")
+	}
+
+	// Get the request body.
+	requestPassword := &requests.UpdateUserPassword{}
+	if err := c.BodyParser(requestPassword); err != nil {
+		return errorutil.Response(c, fiber.StatusBadRequest, errors.BodyParse, "Invalid request body.")
+	}
+
+	// Validate password fields.
+	validate := util.NewValidator()
+	if err := validate.Struct(requestPassword); err != nil {
+		return errorutil.Response(c, fiber.StatusBadRequest, errors.Validator, util.ValidatorErrors(err))
+	}
+
+	// Check if app exists.
+	if available, err := services.IsAppAvailable(requestPassword.App); err != nil {
+		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err.Error())
+	} else if !available {
+		return errorutil.Response(c, fiber.StatusBadRequest, errors.AppExists, "AppName does not exist.")
+	}
+
+	// Get the user.
+	user, err := services.GetUserByID(userID)
+	if err != nil {
+		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err.Error())
+	} else if user.ID == 0 {
+		return errorutil.Response(c, fiber.StatusNotFound, errorutil.NotFound, "User not found.")
+	}
+
+	// Check if the old password is correct.
+	if valid, err := services.IsPasswordCorrect(user.Username, requestPassword.OldPassword); err != nil {
+		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err.Error())
+	} else if !valid {
+		return errorutil.Response(c, fiber.StatusBadRequest, errors.InvalidPassword, "Invalid password.")
+	}
+
+	// Update the user password.
+	if err := services.UpdateUserPassword(user.ID, requestPassword.App, requestPassword.NewPassword); err != nil {
+		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err.Error())
+	}
+
+	return c.SendStatus(fiber.StatusNoContent)
 }
 
 // DeleteUser method to delete user by ID.

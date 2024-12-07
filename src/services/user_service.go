@@ -304,6 +304,36 @@ func UpdateUser(user *models.User, requestUser *requests.UpdateUser) (*models.Us
 	return user, nil
 }
 
+// UpdateUserPassword method to update the user password.
+func UpdateUserPassword(userID uint, app, password string) error {
+	hashedPassword, err := PasswordHash(password)
+	if err != nil {
+		return err
+	}
+
+	err = database.Pg.Transaction(func(tx *gorm.DB) error {
+		if result := database.Pg.Model(&models.User{}).
+			Where("id = ?", userID).
+			Update("password", hashedPassword).
+			Update("is_temp_password", false); result.Error != nil {
+			return result.Error
+		}
+
+		if result := database.Pg.Model(&models.UserAppActivity{}).
+			Where("user_id = ? AND app_name = ?", userID, app).
+			Update("last_password_change_at", time.Now().UTC()); result.Error != nil {
+			return result.Error
+		}
+
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // DeleteRefreshToken method to delete a refresh token.
 func DeleteRefreshToken(app string, userID uint) error {
 	if result := database.Pg.Delete(&models.UserAppRefreshToken{}, "app_name = ? AND user_id = ?", app, userID); result.Error != nil {

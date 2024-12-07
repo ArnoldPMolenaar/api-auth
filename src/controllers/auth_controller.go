@@ -33,7 +33,7 @@ func SignUp(c *fiber.Ctx) error {
 	if available, err := services.IsAppAvailable(signUp.App); err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err.Error())
 	} else if !available {
-		return errorutil.Response(c, fiber.StatusBadRequest, errors.UsernameExists, "AppName does not exist.")
+		return errorutil.Response(c, fiber.StatusBadRequest, errors.AppExists, "AppName does not exist.")
 	}
 
 	// Check if user already exists.
@@ -84,7 +84,7 @@ func UsernamePasswordSignIn(c *fiber.Ctx) error {
 	if available, err := services.IsAppAvailable(signIn.App); err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err.Error())
 	} else if !available {
-		return errorutil.Response(c, fiber.StatusBadRequest, errors.UsernameExists, "AppName does not exist.")
+		return errorutil.Response(c, fiber.StatusBadRequest, errors.AppExists, "AppName does not exist.")
 	}
 
 	// Check if user exists.
