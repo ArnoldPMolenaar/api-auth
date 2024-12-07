@@ -337,3 +337,12 @@ func DestroyUserSessions(userID uint) error {
 
 	return nil
 }
+
+// DeleteUser method to delete a user.
+func DeleteUser(userID uint) error {
+	if result := database.Pg.Delete(&models.User{}, userID); result.Error != nil {
+		return result.Error
+	}
+
+	return nil
+}

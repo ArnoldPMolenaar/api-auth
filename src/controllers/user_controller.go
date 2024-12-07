@@ -59,6 +59,7 @@ func GetUser(c *fiber.Ctx) error {
 	return c.JSON(response)
 }
 
+// UpdateUser method to update user by ID.
 func UpdateUser(c *fiber.Ctx) error {
 	// Get the userID parameter from the URL.
 	userIDParam := c.Params("id")
@@ -141,4 +142,32 @@ func UpdateUser(c *fiber.Ctx) error {
 	response.SetUser(updatedUser)
 
 	return c.JSON(response)
+}
+
+// DeleteUser method to delete user by ID.
+func DeleteUser(c *fiber.Ctx) error {
+	// Get the userID parameter from the URL.
+	userIDParam := c.Params("id")
+	if userIDParam == "" {
+		return errorutil.Response(c, fiber.StatusBadRequest, errors.MissingRequiredParam, "User ID is required.")
+	}
+	userID, err := utils.StringToUint(userIDParam)
+	if err != nil {
+		return errorutil.Response(c, fiber.StatusBadRequest, errors.InvalidParam, "Invalid User ID.")
+	}
+
+	// Get the user.
+	user, err := services.GetUserByID(userID)
+	if err != nil {
+		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err.Error())
+	} else if user.ID == 0 {
+		return errorutil.Response(c, fiber.StatusNotFound, errorutil.NotFound, "User not found.")
+	}
+
+	// Delete the user.
+	if err := services.DeleteUser(user.ID); err != nil {
+		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err.Error())
+	}
+
+	return c.SendStatus(fiber.StatusNoContent)
 }
