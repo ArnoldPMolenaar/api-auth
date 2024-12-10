@@ -180,6 +180,17 @@ func GetUserByUsername(username string) (models.User, error) {
 	return user, nil
 }
 
+// GetUserByEmail method to get a user by email.
+func GetUserByEmail(email string) (models.User, error) {
+	var user models.User
+
+	if result := database.Pg.Find(&user, "email = ?", email); result.Error != nil {
+		return user, result.Error
+	}
+
+	return user, nil
+}
+
 // GetUserByID method to get a user by ID.
 func GetUserByID(userID uint, unscoped ...bool) (models.User, error) {
 	var user models.User
@@ -369,7 +380,7 @@ func DestroyUserSessions(userID uint) error {
 
 	// Delete all access tokens from the cache.
 	for i := range apps {
-		if err := TokenDeleteFromCache(apps[i], userID); err != nil {
+		if err := TokenDeleteFromCache(apps[i], userID, enums.Access); err != nil {
 			return err
 		}
 	}

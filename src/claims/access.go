@@ -7,8 +7,7 @@ import (
 
 // AccessClaims struct to hold the access token claims.
 type AccessClaims struct {
-	Id              int                 `json:"id"`
-	App             string              `json:"app"`
+	IdentityClaims
 	IsEmailVerified bool                `json:"isEmailVerified"`
 	IsPhoneVerified bool                `json:"isPhoneVerified"`
 	IsTempPassword  bool                `json:"isTempPassword"`

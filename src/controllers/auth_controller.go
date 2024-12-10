@@ -127,7 +127,7 @@ func UsernamePasswordSignIn(c *fiber.Ctx) error {
 	}
 
 	// Save the token to the cache.
-	if err = services.TokenToCache(signIn.App, user.ID, accessToken, exp.Time); err != nil {
+	if err = services.TokenToCache(signIn.App, user.ID, accessToken, exp.Time, enums.Access); err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errors.CacheError, err)
 	}
 
@@ -143,6 +143,8 @@ func UsernamePasswordSignIn(c *fiber.Ctx) error {
 	return c.JSON(response)
 }
 
+// Token method to create a new access token and invalidate the old one.
+// Used to refresh the session.
 func Token(c *fiber.Ctx) error {
 	// Get app and userID from claims.
 	claim := c.Locals("claims")
@@ -174,7 +176,7 @@ func Token(c *fiber.Ctx) error {
 	}
 
 	// Save the token to the cache.
-	if err = services.TokenToCache(accessClaims.App, user.ID, accessToken, exp.Time); err != nil {
+	if err = services.TokenToCache(accessClaims.App, user.ID, accessToken, exp.Time, enums.Access); err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errors.CacheError, err)
 	}
 
@@ -239,7 +241,7 @@ func RefreshToken(c *fiber.Ctx) error {
 	}
 
 	// Save the token to the cache.
-	if err = services.TokenToCache(token.App, user.ID, accessToken, exp.Time); err != nil {
+	if err = services.TokenToCache(token.App, user.ID, accessToken, exp.Time, enums.Access); err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errors.CacheError, err)
 	}
 
@@ -283,9 +285,51 @@ func SignOut(c *fiber.Ctx) error {
 	}
 
 	// Delete the access token from the cache.
-	if err := services.TokenDeleteFromCache(accessClaims.App, uint(accessClaims.Id)); err != nil {
+	if err := services.TokenDeleteFromCache(accessClaims.App, uint(accessClaims.Id), enums.Access); err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errors.CacheError, err)
 	}
 
 	return c.SendStatus(fiber.StatusNoContent)
+}
+
+// TokenPasswordReset method to create a new password reset token.
+func TokenPasswordReset(c *fiber.Ctx) error {
+	// Create a new password reset struct.
+	token := &requests.PasswordReset{}
+
+	// Check, if received JSON data is parsed.
+	if err := c.BodyParser(token); err != nil {
+		return errorutil.Response(c, fiber.StatusBadRequest, errors.BodyParse, err.Error())
+	}
+
+	// Validate token fields.
+	validate := utils.NewValidator()
+	if err := validate.Struct(token); err != nil {
+		return errorutil.Response(c, fiber.StatusBadRequest, errors.Validator, utils.ValidatorErrors(err))
+	}
+
+	// Get the user.
+	user, err := services.GetUserByEmail(token.Email)
+	if err != nil {
+		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err)
+	} else if user.ID == 0 {
+		return errorutil.Response(c, fiber.StatusNotFound, errors.EmailUnknown, "Email is unknown.")
+	}
+
+	// Generate a new password reset token.
+	passwordResetToken, exp, err := services.TokenCreate(services.TokenCreatePasswordResetClaim(user.ID, token.App), services.TokenPasswordResetExpireMinutes, time.Minute, enums.PasswordReset)
+	if err != nil {
+		return errorutil.Response(c, fiber.StatusInternalServerError, errors.TokenCreate, err)
+	}
+
+	// Save the token to the cache.
+	if err = services.TokenToCache(token.App, user.ID, passwordResetToken, exp.Time, enums.PasswordReset); err != nil {
+		return errorutil.Response(c, fiber.StatusInternalServerError, errors.CacheError, err)
+	}
+
+	// Create a new response.
+	response := &responses.Token{}
+	response.SetToken(passwordResetToken, exp)
+
+	return c.JSON(response)
 }

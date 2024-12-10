@@ -53,28 +53,34 @@ func init() {
 }
 
 // TokenCreate creates a new token with the given id, expire time, duration and token type.
-func TokenCreate(claim interface{}, expireTime int, duration time.Duration, tokenType enums.TokenType) (string, *jwt.NumericDate, error) {
+func TokenCreate(payload interface{}, expireTime int, duration time.Duration, tokenType enums.TokenType) (string, *jwt.NumericDate, error) {
 	iat := jwt.NewNumericDate(time.Now().UTC())
 	exp := jwt.NewNumericDate(time.Now().UTC().Add(time.Duration(expireTime) * duration))
 
-	var token *jwt.Token
+	var claim jwt.Claims
 
 	switch tokenType {
 	case enums.Access:
-		accessClaims, ok := claim.(claims.AccessClaims)
+		accessClaims, ok := payload.(claims.AccessClaims)
 		if !ok {
 			return "", nil, errors.New("invalid claim type for access token")
 		}
-
-		accessClaims.RegisteredClaims = jwt.RegisteredClaims{
-			IssuedAt:  iat,
-			ExpiresAt: exp,
+		accessClaims.RegisteredClaims.IssuedAt = iat
+		accessClaims.RegisteredClaims.ExpiresAt = exp
+		claim = &accessClaims
+	case enums.PasswordReset:
+		passwordResetClaims, ok := payload.(claims.PasswordResetClaims)
+		if !ok {
+			return "", nil, errors.New("invalid claim type for password reset token")
 		}
-		token = jwt.NewWithClaims(jwt.SigningMethodHS256, accessClaims)
+		passwordResetClaims.RegisteredClaims.IssuedAt = iat
+		passwordResetClaims.RegisteredClaims.ExpiresAt = exp
+		claim = &passwordResetClaims
 	default:
 		return "", nil, errors.New("unsupported token type")
 	}
 
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claim)
 	tokenString, err := token.SignedString([]byte(TokenSecretKey))
 
 	return tokenString, exp, err
@@ -87,6 +93,8 @@ func TokenParse(accessToken string, tokenType enums.TokenType) (interface{}, err
 	switch tokenType {
 	case enums.Access:
 		claim = &claims.AccessClaims{}
+	case enums.PasswordReset:
+		claim = &claims.PasswordResetClaims{}
 	default:
 		return nil, errors.New("unsupported token type")
 	}
@@ -109,6 +117,8 @@ func TokenParse(accessToken string, tokenType enums.TokenType) (interface{}, err
 	switch payload := token.Claims.(type) {
 	case *claims.AccessClaims:
 		return payload, nil
+	case *claims.PasswordResetClaims:
+		return payload, nil
 	default:
 		return nil, errors.New("unknown claims type")
 	}
@@ -122,8 +132,10 @@ func TokenRefreshValidUntil() time.Time {
 // TokenCreateAccessClaim creates a new access claim from the given user.
 func TokenCreateAccessClaim(user *models.User, app string) claims.AccessClaims {
 	claim := claims.AccessClaims{
-		Id:              int(user.ID),
-		App:             app,
+		IdentityClaims: claims.IdentityClaims{
+			Id:  int(user.ID),
+			App: app,
+		},
 		IsEmailVerified: user.EmailVerifiedAt.Valid,
 		IsPhoneVerified: user.PhoneVerifiedAt.Valid,
 		IsTempPassword:  user.IsTempPassword,
@@ -142,9 +154,20 @@ func TokenCreateAccessClaim(user *models.User, app string) claims.AccessClaims {
 	return claim
 }
 
+// TokenCreatePasswordResetClaim creates a new password reset claim from the given user.
+func TokenCreatePasswordResetClaim(userID uint, app string) claims.PasswordResetClaims {
+	return claims.PasswordResetClaims{
+		IdentityClaims: claims.IdentityClaims{
+			Id:  int(userID),
+			App: app,
+		},
+	}
+}
+
 // TokenFromCache returns the token from the cache.
-func TokenFromCache(app string, userID uint) (string, error) {
-	key := tokenCacheKey(app, userID)
+func TokenFromCache(app string, userID uint, tokenType enums.TokenType) (string, error) {
+	key := cacheKey(app, userID, tokenType)
+
 	if result := cache.Valkey.Do(context.Background(), cache.Valkey.B().Get().Key(key).Build()); result.Error() != nil {
 		return "", result.Error()
 	} else {
@@ -157,8 +180,9 @@ func TokenFromCache(app string, userID uint) (string, error) {
 }
 
 // TokenToCache saves the token to the cache.
-func TokenToCache(app string, userID uint, token string, exp time.Time) error {
-	key := tokenCacheKey(app, userID)
+func TokenToCache(app string, userID uint, token string, exp time.Time, tokenType enums.TokenType) error {
+	key := cacheKey(app, userID, tokenType)
+
 	if result := cache.Valkey.Do(context.Background(), cache.Valkey.B().Set().Key(key).Value(token).Exat(exp).Build()); result.Error() != nil {
 		return result.Error()
 	} else {
@@ -167,8 +191,9 @@ func TokenToCache(app string, userID uint, token string, exp time.Time) error {
 }
 
 // TokenDeleteFromCache deletes the token from the cache.
-func TokenDeleteFromCache(app string, userID uint) error {
-	key := tokenCacheKey(app, userID)
+func TokenDeleteFromCache(app string, userID uint, tokenType enums.TokenType) error {
+	key := cacheKey(app, userID, tokenType)
+
 	if result := cache.Valkey.Do(context.Background(), cache.Valkey.B().Del().Key(key).Build()); result.Error() != nil {
 		return result.Error()
 	} else {
@@ -177,8 +202,9 @@ func TokenDeleteFromCache(app string, userID uint) error {
 }
 
 // TokenExistsInCache checks if the token exists in the cache.
-func TokenExistsInCache(app string, userID uint) (bool, error) {
-	key := tokenCacheKey(app, userID)
+func TokenExistsInCache(app string, userID uint, tokenType enums.TokenType) (bool, error) {
+	key := cacheKey(app, userID, tokenType)
+
 	if result := cache.Valkey.Do(context.Background(), cache.Valkey.B().Exists().Key(key).Build()); result.Error() != nil {
 		return false, result.Error()
 	} else {
@@ -190,7 +216,26 @@ func TokenExistsInCache(app string, userID uint) (bool, error) {
 	}
 }
 
+// cacheKey returns the key for the token cache.
+func cacheKey(app string, userID uint, tokenType enums.TokenType) string {
+	var key string
+
+	switch tokenType {
+	case enums.Access:
+		key = tokenCacheKey(app, userID)
+	case enums.PasswordReset:
+		key = tokenPasswordResetCacheKey(app, userID)
+	}
+
+	return key
+}
+
 // tokenCacheKey returns the key for the token cache.
 func tokenCacheKey(app string, userID uint) string {
 	return fmt.Sprintf("%s:%d:AccessToken", app, userID)
+}
+
+// tokenPasswordResetCacheKey returns the key for password reset token cache.
+func tokenPasswordResetCacheKey(app string, userID uint) string {
+	return fmt.Sprintf("%s:%d:PasswordResetToken", app, userID)
 }

@@ -23,4 +23,8 @@ func PrivateRoutes(a *fiber.App) {
 	// Username-password group.
 	routeUsernamePassword := route.Group("/username-password")
 	routeUsernamePassword.Post("/sign-in", controllers.UsernamePasswordSignIn)
+
+	// Token group.
+	routeToken := route.Group("/token")
+	routeToken.Post("/password", controllers.TokenPasswordReset)
 }

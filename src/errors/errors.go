@@ -11,6 +11,7 @@ const (
 	AppExists                              = "appExists"
 	PhoneNumberExists                      = "phoneNumberExists"
 	UsernameEmailUnknown                   = "usernameEmailUnknown"
+	EmailUnknown                           = "emailUnknown"
 	RecipeNotAllowed                       = "recipeNotAllowed"
 	PasswordIncorrect                      = "passwordIncorrect"
 	TokenCreate                            = "tokenCreate"
