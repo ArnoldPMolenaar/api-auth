@@ -328,8 +328,16 @@ func TokenPasswordReset(c *fiber.Ctx) error {
 	}
 
 	// Create a new response.
-	response := &responses.Token{}
-	response.SetToken(passwordResetToken, exp)
+	response := &responses.PasswordReset{}
+	response.SetPasswordReset(user.ID, passwordResetToken, exp)
 
 	return c.JSON(response)
+}
+
+// TokenPasswordResetVerify method to verify the reset password token.
+// This endpoint is empty, because the middleware already verified the token.
+// It is only used to validate the active password reset.
+// This endpoint needs to be empty and very fast.
+func TokenPasswordResetVerify(c *fiber.Ctx) error {
+	return c.SendStatus(fiber.StatusNoContent)
 }

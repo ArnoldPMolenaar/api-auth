@@ -161,6 +161,7 @@ func TokenCreatePasswordResetClaim(userID uint, app string) claims.PasswordReset
 			Id:  int(userID),
 			App: app,
 		},
+		Type: enums.PasswordReset,
 	}
 }
 
