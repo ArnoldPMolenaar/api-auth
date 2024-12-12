@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"api-auth/main/src/claims"
 	"api-auth/main/src/database"
 	"api-auth/main/src/dto/requests"
 	"api-auth/main/src/dto/responses"
@@ -249,6 +250,59 @@ func UpdateUserPassword(c *fiber.Ctx) error {
 	// Update the user password.
 	if err := services.UpdateUserPassword(user.ID, requestPassword.App, requestPassword.NewPassword); err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err.Error())
+	}
+
+	return c.SendStatus(fiber.StatusNoContent)
+}
+
+// UpdateUserPasswordReset method to update user password by reset token.
+func UpdateUserPasswordReset(c *fiber.Ctx) error {
+	// Get app and userID from claims.
+	claim := c.Locals("claims")
+	if claim == nil {
+		return errorutil.Response(c, fiber.StatusUnauthorized, errorutil.Unauthorized, "Claims not found.")
+	}
+
+	passwordClaims, ok := claim.(*claims.PasswordResetClaims)
+	if !ok {
+		return errorutil.Response(c, fiber.StatusUnauthorized, errorutil.Unauthorized, "Invalid claims type.")
+	}
+
+	// Get the request body.
+	requestPassword := &requests.UpdateUserPasswordReset{}
+	if err := c.BodyParser(requestPassword); err != nil {
+		return errorutil.Response(c, fiber.StatusBadRequest, errors.BodyParse, "Invalid request body.")
+	}
+
+	// Validate password fields.
+	validate := util.NewValidator()
+	if err := validate.Struct(requestPassword); err != nil {
+		return errorutil.Response(c, fiber.StatusBadRequest, errors.Validator, util.ValidatorErrors(err))
+	}
+
+	// Check if app exists.
+	if available, err := services.IsAppAvailable(requestPassword.App); err != nil {
+		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err.Error())
+	} else if !available {
+		return errorutil.Response(c, fiber.StatusBadRequest, errors.AppExists, "AppName does not exist.")
+	}
+
+	// Get the user.
+	user, err := services.GetUserByID(uint(passwordClaims.Id))
+	if err != nil {
+		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err.Error())
+	} else if user.ID == 0 {
+		return errorutil.Response(c, fiber.StatusNotFound, errorutil.NotFound, "User not found.")
+	}
+
+	// Update the user password.
+	if err := services.UpdateUserPassword(user.ID, requestPassword.App, requestPassword.Password); err != nil {
+		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err.Error())
+	}
+
+	// Delete the reset token from the cache.
+	if err := services.TokenDeleteFromCache(requestPassword.App, uint(passwordClaims.Id), passwordClaims.Type); err != nil {
+		return errorutil.Response(c, fiber.StatusInternalServerError, errors.CacheError, err.Error())
 	}
 
 	return c.SendStatus(fiber.StatusNoContent)
