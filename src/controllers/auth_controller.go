@@ -341,3 +341,50 @@ func TokenPasswordReset(c *fiber.Ctx) error {
 func TokenPasswordResetVerify(c *fiber.Ctx) error {
 	return c.SendStatus(fiber.StatusNoContent)
 }
+
+// TokenEmailVerification method to create a new email verification token.
+func TokenEmailVerification(c *fiber.Ctx) error {
+	// Get app and userID from claims.
+	claim := c.Locals("claims")
+	if claim == nil {
+		return errorutil.Response(c, fiber.StatusUnauthorized, errorutil.Unauthorized, "Claims not found.")
+	}
+
+	accessClaims, ok := claim.(*claims.AccessClaims)
+	if !ok {
+		return errorutil.Response(c, fiber.StatusUnauthorized, errorutil.Unauthorized, "Invalid claims type.")
+	}
+
+	// Get the user.
+	user, err := services.GetUserByID(uint(accessClaims.Id))
+	if err != nil {
+		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err)
+	} else if user.ID == 0 {
+		return errorutil.Response(c, fiber.StatusNotFound, errorutil.NotFound, "User not found.")
+	}
+
+	// Generate a new email verification token.
+	emailVerificationToken, exp, err := services.TokenCreate(services.TokenCreateEmailVerificationClaim(user.ID, accessClaims.App, user.Email), services.TokenEmailVerificationExpireHours, time.Hour, enums.EmailVerification)
+	if err != nil {
+		return errorutil.Response(c, fiber.StatusInternalServerError, errors.TokenCreate, err)
+	}
+
+	// Save the token to the cache.
+	if err = services.TokenToCache(accessClaims.App, user.ID, emailVerificationToken, exp.Time, enums.EmailVerification); err != nil {
+		return errorutil.Response(c, fiber.StatusInternalServerError, errors.CacheError, err)
+	}
+
+	// Create a new response.
+	response := &responses.EmailVerification{}
+	response.SetEmailVerification(user.ID, emailVerificationToken, exp)
+
+	return c.JSON(response)
+}
+
+// TokenEmailVerificationVerify method to verify the email verification token.
+// This endpoint is empty, because the middleware already verified the token.
+// It is only used to validate the active email verification.
+// This endpoint needs to be empty and very fast.
+func TokenEmailVerificationVerify(c *fiber.Ctx) error {
+	return c.SendStatus(fiber.StatusNoContent)
+}

@@ -76,6 +76,14 @@ func TokenCreate(payload interface{}, expireTime int, duration time.Duration, to
 		passwordResetClaims.RegisteredClaims.IssuedAt = iat
 		passwordResetClaims.RegisteredClaims.ExpiresAt = exp
 		claim = &passwordResetClaims
+	case enums.EmailVerification:
+		emailClaims, ok := payload.(claims.EmailVerificationClaims)
+		if !ok {
+			return "", nil, errors.New("invalid claim type for email verification token")
+		}
+		emailClaims.RegisteredClaims.IssuedAt = iat
+		emailClaims.RegisteredClaims.ExpiresAt = exp
+		claim = &emailClaims
 	default:
 		return "", nil, errors.New("unsupported token type")
 	}
@@ -95,6 +103,8 @@ func TokenParse(accessToken string, tokenType enums.TokenType) (interface{}, err
 		claim = &claims.AccessClaims{}
 	case enums.PasswordReset:
 		claim = &claims.PasswordResetClaims{}
+	case enums.EmailVerification:
+		claim = &claims.EmailVerificationClaims{}
 	default:
 		return nil, errors.New("unsupported token type")
 	}
@@ -118,6 +128,8 @@ func TokenParse(accessToken string, tokenType enums.TokenType) (interface{}, err
 	case *claims.AccessClaims:
 		return payload, nil
 	case *claims.PasswordResetClaims:
+		return payload, nil
+	case *claims.EmailVerificationClaims:
 		return payload, nil
 	default:
 		return nil, errors.New("unknown claims type")
@@ -162,6 +174,18 @@ func TokenCreatePasswordResetClaim(userID uint, app string) claims.PasswordReset
 			App: app,
 		},
 		Type: enums.PasswordReset,
+	}
+}
+
+// TokenCreateEmailVerificationClaim creates a new email verification claim from the given user.
+func TokenCreateEmailVerificationClaim(userID uint, app, email string) claims.EmailVerificationClaims {
+	return claims.EmailVerificationClaims{
+		IdentityClaims: claims.IdentityClaims{
+			Id:  int(userID),
+			App: app,
+		},
+		Type:  enums.EmailVerification,
+		Email: email,
 	}
 }
 
@@ -226,6 +250,8 @@ func cacheKey(app string, userID uint, tokenType enums.TokenType) string {
 		key = tokenCacheKey(app, userID)
 	case enums.PasswordReset:
 		key = tokenPasswordResetCacheKey(app, userID)
+	case enums.EmailVerification:
+		key = tokenEmailVerificationCacheKey(app, userID)
 	}
 
 	return key
@@ -239,4 +265,9 @@ func tokenCacheKey(app string, userID uint) string {
 // tokenPasswordResetCacheKey returns the key for password reset token cache.
 func tokenPasswordResetCacheKey(app string, userID uint) string {
 	return fmt.Sprintf("%s:%d:PasswordResetToken", app, userID)
+}
+
+// tokenEmailVerificationCacheKey returns the key for email verification token cache.
+func tokenEmailVerificationCacheKey(app string, userID uint) string {
+	return fmt.Sprintf("%s:%d:EmailVerificationToken", app, userID)
 }

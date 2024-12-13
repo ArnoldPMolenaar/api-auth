@@ -93,7 +93,7 @@ func PasswordProtected() func(*fiber.Ctx) error {
 				c,
 				fiber.StatusUnauthorized,
 				errorsutil.Unauthorized,
-				"Access token does not match.",
+				"Reset token does not match.",
 			)
 		}
 

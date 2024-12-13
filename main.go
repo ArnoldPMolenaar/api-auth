@@ -38,6 +38,8 @@ func main() {
 	routes.JwtRoutes(app)
 	// Register a password routes_util for app.
 	routes.PasswordRoutes(app)
+	// Register a email routes_util for app.
+	routes.EmailRoutes(app)
 	// Register a private routes_util for app.
 	routes.PrivateRoutes(app)
 	// Register route for 404 Error.

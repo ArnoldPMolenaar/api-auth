@@ -30,6 +30,15 @@ func IsEmailAvailable(email string) (bool, error) {
 	}
 }
 
+// IsEmailVerified method to check if an email is verified.
+func IsEmailVerified(email string) (bool, error) {
+	if result := database.Pg.Limit(1).Find(&models.User{}, "email = ? AND email_verified_at IS NOT NULL", email); result.Error != nil {
+		return false, result.Error
+	} else {
+		return result.RowsAffected == 1, nil
+	}
+}
+
 // IsPhoneNumberAvailable method to check if a phone number is available.
 func IsPhoneNumberAvailable(phoneNumber *string) (bool, error) {
 	if result := database.Pg.Limit(1).Find(&models.User{}, "phone_number = ?", phoneNumber); result.Error != nil {
@@ -345,6 +354,17 @@ func UpdateUserPassword(userID uint, app, password string) error {
 	})
 	if err != nil {
 		return err
+	}
+
+	return nil
+}
+
+// UpdateUserEmailVerification method to update the user email.
+func UpdateUserEmailVerification(userID uint, email string) error {
+	if result := database.Pg.Model(&models.User{}).
+		Where("id = ? AND email = ?", userID, email).
+		Update("email_verified_at", time.Now().UTC()); result.Error != nil {
+		return result.Error
 	}
 
 	return nil

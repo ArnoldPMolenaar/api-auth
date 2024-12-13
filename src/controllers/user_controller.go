@@ -5,6 +5,7 @@ import (
 	"api-auth/main/src/database"
 	"api-auth/main/src/dto/requests"
 	"api-auth/main/src/dto/responses"
+	"api-auth/main/src/enums"
 	"api-auth/main/src/errors"
 	"api-auth/main/src/models"
 	"api-auth/main/src/services"
@@ -302,6 +303,40 @@ func UpdateUserPasswordReset(c *fiber.Ctx) error {
 
 	// Delete the reset token from the cache.
 	if err := services.TokenDeleteFromCache(requestPassword.App, uint(passwordClaims.Id), passwordClaims.Type); err != nil {
+		return errorutil.Response(c, fiber.StatusInternalServerError, errors.CacheError, err.Error())
+	}
+
+	return c.SendStatus(fiber.StatusNoContent)
+}
+
+// UpdateUserEmailVerification method to update user email by verification token.
+func UpdateUserEmailVerification(c *fiber.Ctx) error {
+	// Get email from claims.
+	claim := c.Locals("claims")
+	if claim == nil {
+		return errorutil.Response(c, fiber.StatusUnauthorized, errorutil.Unauthorized, "Claims not found.")
+	}
+
+	emailClaims, ok := claim.(*claims.EmailVerificationClaims)
+	if !ok {
+		return errorutil.Response(c, fiber.StatusUnauthorized, errorutil.Unauthorized, "Invalid claims type.")
+	}
+
+	// Get the user.
+	user, err := services.GetUserByID(uint(emailClaims.Id))
+	if err != nil {
+		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err.Error())
+	} else if user.ID == 0 {
+		return errorutil.Response(c, fiber.StatusNotFound, errorutil.NotFound, "User not found.")
+	}
+
+	// Update the user email.
+	if err := services.UpdateUserEmailVerification(user.ID, emailClaims.Email); err != nil {
+		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err.Error())
+	}
+
+	// Delete the verification token from the cache.
+	if err := services.TokenDeleteFromCache(emailClaims.App, user.ID, enums.EmailVerification); err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errors.CacheError, err.Error())
 	}
 
