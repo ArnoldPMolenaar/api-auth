@@ -9,7 +9,6 @@ import (
 	"api-auth/main/src/errors"
 	"api-auth/main/src/models"
 	"api-auth/main/src/services"
-	"api-auth/main/src/utils"
 	errorutil "github.com/ArnoldPMolenaar/api-utils/errors"
 	"github.com/ArnoldPMolenaar/api-utils/pagination"
 	util "github.com/ArnoldPMolenaar/api-utils/utils"
@@ -24,21 +23,21 @@ func GetUserRecipesByUsername(c *fiber.Ctx) error {
 
 	// Check if user exists.
 	if active, err := services.IsUserActive(username); err != nil {
-		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err.Error())
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 	} else if !active {
 		return errorutil.Response(c, fiber.StatusBadRequest, errors.UsernameEmailUnknown, "Username and Email is unknown.")
 	}
 
 	// Check if app exists.
 	if available, err := services.IsAppAvailable(app); err != nil {
-		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err.Error())
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 	} else if !available {
 		return errorutil.Response(c, fiber.StatusBadRequest, errors.AppExists, "AppName does not exist.")
 	}
 
 	// Get user recipes.
 	if recipes, err := services.GetUserRecipesByUsername(app, username); err != nil {
-		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err.Error())
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 	} else {
 		return c.JSON(recipes)
 	}
@@ -49,17 +48,17 @@ func GetUser(c *fiber.Ctx) error {
 	// Get the userID parameter from the URL.
 	userIDParam := c.Params("id")
 	if userIDParam == "" {
-		return errorutil.Response(c, fiber.StatusBadRequest, errors.MissingRequiredParam, "User ID is required.")
+		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.MissingRequiredParam, "User ID is required.")
 	}
-	userID, err := utils.StringToUint(userIDParam)
+	userID, err := util.StringToUint(userIDParam)
 	if err != nil {
-		return errorutil.Response(c, fiber.StatusBadRequest, errors.InvalidParam, "Invalid User ID.")
+		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.InvalidParam, "Invalid User ID.")
 	}
 
 	// Get the user.
 	user, err := services.GetUserByID(userID)
 	if err != nil {
-		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err.Error())
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 	} else if user.ID == 0 {
 		return errorutil.Response(c, fiber.StatusNotFound, errorutil.NotFound, "User not found.")
 	}
@@ -99,7 +98,7 @@ func GetUsers(c *fiber.Ctx) error {
 
 	db := database.Pg.Unscoped().Scopes(queryFunc, sortFunc).Limit(limit).Offset(offset).Find(&users)
 	if db.Error != nil {
-		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, db.Error.Error())
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, db.Error.Error())
 	}
 
 	total := int64(0)
@@ -123,39 +122,39 @@ func UpdateUser(c *fiber.Ctx) error {
 	// Get the userID parameter from the URL.
 	userIDParam := c.Params("id")
 	if userIDParam == "" {
-		return errorutil.Response(c, fiber.StatusBadRequest, errors.MissingRequiredParam, "User ID is required.")
+		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.MissingRequiredParam, "User ID is required.")
 	}
-	userID, err := utils.StringToUint(userIDParam)
+	userID, err := util.StringToUint(userIDParam)
 	if err != nil {
-		return errorutil.Response(c, fiber.StatusBadRequest, errors.InvalidParam, "Invalid User ID.")
+		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.InvalidParam, "Invalid User ID.")
 	}
 
 	// Get the request body.
 	requestUser := &requests.UpdateUser{}
 	if err := c.BodyParser(requestUser); err != nil {
-		return errorutil.Response(c, fiber.StatusBadRequest, errors.BodyParse, "Invalid request body.")
+		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.BodyParse, "Invalid request body.")
 	}
 
 	// Validate user fields.
 	validate := util.NewValidator()
 	if err := validate.Struct(requestUser); err != nil {
-		return errorutil.Response(c, fiber.StatusBadRequest, errors.Validator, util.ValidatorErrors(err))
+		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.Validator, util.ValidatorErrors(err))
 	}
 	for _, item := range requestUser.Roles {
 		if err := validate.Struct(item); err != nil {
-			return errorutil.Response(c, fiber.StatusBadRequest, errors.Validator, util.ValidatorErrors(err))
+			return errorutil.Response(c, fiber.StatusBadRequest, errorutil.Validator, util.ValidatorErrors(err))
 		}
 	}
 	for _, item := range requestUser.Recipes {
 		if err := validate.Struct(item); err != nil {
-			return errorutil.Response(c, fiber.StatusBadRequest, errors.Validator, util.ValidatorErrors(err))
+			return errorutil.Response(c, fiber.StatusBadRequest, errorutil.Validator, util.ValidatorErrors(err))
 		}
 	}
 
 	// Get the user.
 	user, err := services.GetUserByID(userID)
 	if err != nil {
-		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err.Error())
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 	} else if user.ID == 0 {
 		return errorutil.Response(c, fiber.StatusNotFound, errorutil.NotFound, "User not found.")
 	}
@@ -163,7 +162,7 @@ func UpdateUser(c *fiber.Ctx) error {
 	// Check if user already exists.
 	if requestUser.Username != user.Username {
 		if available, err := services.IsUsernameAvailable(requestUser.Username); err != nil {
-			return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err.Error())
+			return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 		} else if !available {
 			return errorutil.Response(c, fiber.StatusBadRequest, errors.UsernameExists, "Username already exists.")
 		}
@@ -171,7 +170,7 @@ func UpdateUser(c *fiber.Ctx) error {
 
 	if requestUser.Email != user.Email {
 		if available, err := services.IsEmailAvailable(requestUser.Email); err != nil {
-			return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err.Error())
+			return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 		} else if !available {
 			return errorutil.Response(c, fiber.StatusBadRequest, errors.EmailExists, "Email already exists.")
 		}
@@ -179,7 +178,7 @@ func UpdateUser(c *fiber.Ctx) error {
 
 	if requestUser.PhoneNumber != nil && *requestUser.PhoneNumber != *user.PhoneNumber {
 		if available, err := services.IsPhoneNumberAvailable(requestUser.PhoneNumber); err != nil {
-			return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err.Error())
+			return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 		} else if !available {
 			return errorutil.Response(c, fiber.StatusBadRequest, errors.PhoneNumberExists, "Phone already exists.")
 		}
@@ -187,13 +186,13 @@ func UpdateUser(c *fiber.Ctx) error {
 
 	// Check if the user data has been modified since it was last fetched.
 	if requestUser.UpdatedAt.Unix() < user.UpdatedAt.Unix() {
-		return errorutil.Response(c, fiber.StatusBadRequest, errors.OutOfSync, "Data is out of sync.")
+		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.OutOfSync, "Data is out of sync.")
 	}
 
 	// Update the user.
 	updatedUser, err := services.UpdateUser(&user, requestUser)
 	if err != nil {
-		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err.Error())
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 	}
 
 	// Return the user.
@@ -207,28 +206,28 @@ func UpdateUserPassword(c *fiber.Ctx) error {
 	// Get the userID parameter from the URL.
 	userIDParam := c.Params("id")
 	if userIDParam == "" {
-		return errorutil.Response(c, fiber.StatusBadRequest, errors.MissingRequiredParam, "User ID is required.")
+		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.MissingRequiredParam, "User ID is required.")
 	}
-	userID, err := utils.StringToUint(userIDParam)
+	userID, err := util.StringToUint(userIDParam)
 	if err != nil {
-		return errorutil.Response(c, fiber.StatusBadRequest, errors.InvalidParam, "Invalid User ID.")
+		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.InvalidParam, "Invalid User ID.")
 	}
 
 	// Get the request body.
 	requestPassword := &requests.UpdateUserPassword{}
 	if err := c.BodyParser(requestPassword); err != nil {
-		return errorutil.Response(c, fiber.StatusBadRequest, errors.BodyParse, "Invalid request body.")
+		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.BodyParse, "Invalid request body.")
 	}
 
 	// Validate password fields.
 	validate := util.NewValidator()
 	if err := validate.Struct(requestPassword); err != nil {
-		return errorutil.Response(c, fiber.StatusBadRequest, errors.Validator, util.ValidatorErrors(err))
+		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.Validator, util.ValidatorErrors(err))
 	}
 
 	// Check if app exists.
 	if available, err := services.IsAppAvailable(requestPassword.App); err != nil {
-		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err.Error())
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 	} else if !available {
 		return errorutil.Response(c, fiber.StatusBadRequest, errors.AppExists, "AppName does not exist.")
 	}
@@ -236,21 +235,21 @@ func UpdateUserPassword(c *fiber.Ctx) error {
 	// Get the user.
 	user, err := services.GetUserByID(userID)
 	if err != nil {
-		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err.Error())
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 	} else if user.ID == 0 {
 		return errorutil.Response(c, fiber.StatusNotFound, errorutil.NotFound, "User not found.")
 	}
 
 	// Check if the old password is correct.
 	if valid, err := services.IsPasswordCorrect(user.Username, requestPassword.OldPassword); err != nil {
-		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err.Error())
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 	} else if !valid {
 		return errorutil.Response(c, fiber.StatusBadRequest, errors.InvalidPassword, "Invalid password.")
 	}
 
 	// Update the user password.
 	if err := services.UpdateUserPassword(user.ID, requestPassword.App, requestPassword.NewPassword); err != nil {
-		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err.Error())
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 	}
 
 	return c.SendStatus(fiber.StatusNoContent)
@@ -272,18 +271,18 @@ func UpdateUserPasswordReset(c *fiber.Ctx) error {
 	// Get the request body.
 	requestPassword := &requests.UpdateUserPasswordReset{}
 	if err := c.BodyParser(requestPassword); err != nil {
-		return errorutil.Response(c, fiber.StatusBadRequest, errors.BodyParse, "Invalid request body.")
+		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.BodyParse, "Invalid request body.")
 	}
 
 	// Validate password fields.
 	validate := util.NewValidator()
 	if err := validate.Struct(requestPassword); err != nil {
-		return errorutil.Response(c, fiber.StatusBadRequest, errors.Validator, util.ValidatorErrors(err))
+		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.Validator, util.ValidatorErrors(err))
 	}
 
 	// Check if app exists.
 	if available, err := services.IsAppAvailable(requestPassword.App); err != nil {
-		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err.Error())
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 	} else if !available {
 		return errorutil.Response(c, fiber.StatusBadRequest, errors.AppExists, "AppName does not exist.")
 	}
@@ -291,19 +290,19 @@ func UpdateUserPasswordReset(c *fiber.Ctx) error {
 	// Get the user.
 	user, err := services.GetUserByID(uint(passwordClaims.Id))
 	if err != nil {
-		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err.Error())
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 	} else if user.ID == 0 {
 		return errorutil.Response(c, fiber.StatusNotFound, errorutil.NotFound, "User not found.")
 	}
 
 	// Update the user password.
 	if err := services.UpdateUserPassword(user.ID, requestPassword.App, requestPassword.Password); err != nil {
-		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err.Error())
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 	}
 
 	// Delete the reset token from the cache.
 	if err := services.TokenDeleteFromCache(requestPassword.App, uint(passwordClaims.Id), passwordClaims.Type); err != nil {
-		return errorutil.Response(c, fiber.StatusInternalServerError, errors.CacheError, err.Error())
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.CacheError, err.Error())
 	}
 
 	return c.SendStatus(fiber.StatusNoContent)
@@ -325,19 +324,19 @@ func UpdateUserEmailVerification(c *fiber.Ctx) error {
 	// Get the user.
 	user, err := services.GetUserByID(uint(emailClaims.Id))
 	if err != nil {
-		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err.Error())
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 	} else if user.ID == 0 {
 		return errorutil.Response(c, fiber.StatusNotFound, errorutil.NotFound, "User not found.")
 	}
 
 	// Update the user email.
 	if err := services.UpdateUserEmailVerification(user.ID, emailClaims.Email); err != nil {
-		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err.Error())
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 	}
 
 	// Delete the verification token from the cache.
 	if err := services.TokenDeleteFromCache(emailClaims.App, user.ID, enums.EmailVerification); err != nil {
-		return errorutil.Response(c, fiber.StatusInternalServerError, errors.CacheError, err.Error())
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.CacheError, err.Error())
 	}
 
 	return c.SendStatus(fiber.StatusNoContent)
@@ -348,24 +347,24 @@ func RestoreUser(c *fiber.Ctx) error {
 	// Get the userID parameter from the URL.
 	userIDParam := c.Params("id")
 	if userIDParam == "" {
-		return errorutil.Response(c, fiber.StatusBadRequest, errors.MissingRequiredParam, "User ID is required.")
+		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.MissingRequiredParam, "User ID is required.")
 	}
-	userID, err := utils.StringToUint(userIDParam)
+	userID, err := util.StringToUint(userIDParam)
 	if err != nil {
-		return errorutil.Response(c, fiber.StatusBadRequest, errors.InvalidParam, "Invalid User ID.")
+		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.InvalidParam, "Invalid User ID.")
 	}
 
 	// Get the user.
 	user, err := services.GetUserByID(userID, true)
 	if err != nil {
-		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err.Error())
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 	} else if user.ID == 0 {
 		return errorutil.Response(c, fiber.StatusNotFound, errorutil.NotFound, "User not found.")
 	}
 
 	// Restore the user.
 	if err := services.RestoreUser(user.ID); err != nil {
-		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err.Error())
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 	}
 
 	return c.SendStatus(fiber.StatusNoContent)
@@ -376,24 +375,24 @@ func DeleteUser(c *fiber.Ctx) error {
 	// Get the userID parameter from the URL.
 	userIDParam := c.Params("id")
 	if userIDParam == "" {
-		return errorutil.Response(c, fiber.StatusBadRequest, errors.MissingRequiredParam, "User ID is required.")
+		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.MissingRequiredParam, "User ID is required.")
 	}
-	userID, err := utils.StringToUint(userIDParam)
+	userID, err := util.StringToUint(userIDParam)
 	if err != nil {
-		return errorutil.Response(c, fiber.StatusBadRequest, errors.InvalidParam, "Invalid User ID.")
+		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.InvalidParam, "Invalid User ID.")
 	}
 
 	// Get the user.
 	user, err := services.GetUserByID(userID)
 	if err != nil {
-		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err.Error())
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 	} else if user.ID == 0 {
 		return errorutil.Response(c, fiber.StatusNotFound, errorutil.NotFound, "User not found.")
 	}
 
 	// Delete the user.
 	if err := services.DeleteUser(user.ID); err != nil {
-		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err.Error())
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 	}
 
 	return c.SendStatus(fiber.StatusNoContent)

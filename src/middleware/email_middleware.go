@@ -68,7 +68,7 @@ func EmailProtected() func(*fiber.Ctx) error {
 			return errorsutil.Response(
 				c,
 				fiber.StatusInternalServerError,
-				errorint.CacheError,
+				errorsutil.CacheError,
 				err.Error(),
 			)
 		} else if !exists {
@@ -85,7 +85,7 @@ func EmailProtected() func(*fiber.Ctx) error {
 			return errorsutil.Response(
 				c,
 				fiber.StatusInternalServerError,
-				errorint.CacheError,
+				errorsutil.CacheError,
 				err.Error(),
 			)
 		} else if token != emailToken {
@@ -102,7 +102,7 @@ func EmailProtected() func(*fiber.Ctx) error {
 			return errorsutil.Response(
 				c,
 				fiber.StatusInternalServerError,
-				errorint.QueryError,
+				errorsutil.QueryError,
 				err.Error(),
 			)
 		} else if available {
@@ -119,7 +119,7 @@ func EmailProtected() func(*fiber.Ctx) error {
 			return errorsutil.Response(
 				c,
 				fiber.StatusInternalServerError,
-				errorint.QueryError,
+				errorsutil.QueryError,
 				err.Error(),
 			)
 		} else if verified {

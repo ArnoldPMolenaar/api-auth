@@ -71,7 +71,7 @@ func JWTProtected() func(*fiber.Ctx) error {
 			return errorsutil.Response(
 				c,
 				fiber.StatusInternalServerError,
-				errorint.CacheError,
+				errorsutil.CacheError,
 				err.Error(),
 			)
 		} else if !exists {
@@ -88,7 +88,7 @@ func JWTProtected() func(*fiber.Ctx) error {
 			return errorsutil.Response(
 				c,
 				fiber.StatusInternalServerError,
-				errorint.CacheError,
+				errorsutil.CacheError,
 				err.Error(),
 			)
 		} else if token != accessToken {
@@ -105,7 +105,7 @@ func JWTProtected() func(*fiber.Ctx) error {
 			return errorsutil.Response(
 				c,
 				fiber.StatusForbidden,
-				errorint.Forbidden,
+				errorsutil.Forbidden,
 				"User is blocked",
 			)
 		}

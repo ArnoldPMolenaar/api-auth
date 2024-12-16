@@ -20,38 +20,38 @@ func SignUp(c *fiber.Ctx) error {
 
 	// Check, if received JSON data is parsed.
 	if err := c.BodyParser(signUp); err != nil {
-		return errorutil.Response(c, fiber.StatusBadRequest, errors.BodyParse, err.Error())
+		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.BodyParse, err.Error())
 	}
 
 	// Validate signUp fields.
 	validate := utils.NewValidator()
 	if err := validate.Struct(signUp); err != nil {
-		return errorutil.Response(c, fiber.StatusBadRequest, errors.Validator, utils.ValidatorErrors(err))
+		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.Validator, utils.ValidatorErrors(err))
 	}
 
 	// Check if app exists.
 	if available, err := services.IsAppAvailable(signUp.App); err != nil {
-		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err.Error())
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 	} else if !available {
 		return errorutil.Response(c, fiber.StatusBadRequest, errors.AppExists, "AppName does not exist.")
 	}
 
 	// Check if user already exists.
 	if available, err := services.IsUsernameAvailable(signUp.Username); err != nil {
-		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err.Error())
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 	} else if !available {
 		return errorutil.Response(c, fiber.StatusBadRequest, errors.UsernameExists, "Username already exists.")
 	}
 
 	if available, err := services.IsEmailAvailable(signUp.Email); err != nil {
-		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err.Error())
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 	} else if !available {
 		return errorutil.Response(c, fiber.StatusBadRequest, errors.EmailExists, "Email already exists.")
 	}
 
 	if signUp.PhoneNumber != nil {
 		if available, err := services.IsPhoneNumberAvailable(signUp.PhoneNumber); err != nil {
-			return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err.Error())
+			return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 		} else if !available {
 			return errorutil.Response(c, fiber.StatusBadRequest, errors.PhoneNumberExists, "Phone already exists.")
 		}
@@ -59,7 +59,7 @@ func SignUp(c *fiber.Ctx) error {
 
 	// Create a new user.
 	if user, err := services.SignUp(signUp); err != nil {
-		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err.Error())
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 	} else {
 		return c.JSON(user)
 	}
@@ -71,39 +71,39 @@ func UsernamePasswordSignIn(c *fiber.Ctx) error {
 
 	// Check, if received JSON data is parsed.
 	if err := c.BodyParser(signIn); err != nil {
-		return errorutil.Response(c, fiber.StatusBadRequest, errors.BodyParse, err.Error())
+		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.BodyParse, err.Error())
 	}
 
 	// Validate signIn fields.
 	validate := utils.NewValidator()
 	if err := validate.Struct(signIn); err != nil {
-		return errorutil.Response(c, fiber.StatusBadRequest, errors.Validator, utils.ValidatorErrors(err))
+		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.Validator, utils.ValidatorErrors(err))
 	}
 
 	// Check if app exists.
 	if available, err := services.IsAppAvailable(signIn.App); err != nil {
-		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err.Error())
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 	} else if !available {
 		return errorutil.Response(c, fiber.StatusBadRequest, errors.AppExists, "AppName does not exist.")
 	}
 
 	// Check if user exists.
 	if active, err := services.IsUserActive(signIn.Username); err != nil {
-		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err.Error())
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 	} else if !active {
 		return errorutil.Response(c, fiber.StatusBadRequest, errors.UsernameEmailUnknown, "Username and Email is unknown.")
 	}
 
 	// Check if user has this recipe.
 	if hasRecipe, err := services.HasUserRecipe(signIn.App, signIn.Username, enums.UsernamePassword); err != nil {
-		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err.Error())
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 	} else if !hasRecipe {
 		return errorutil.Response(c, fiber.StatusBadRequest, errors.RecipeNotAllowed, "Username does not have this recipe.")
 	}
 
 	// Check if password is correct.
 	if correct, err := services.IsPasswordCorrect(signIn.Username, signIn.Password); err != nil {
-		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err.Error())
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 	} else if !correct {
 		return errorutil.Response(c, fiber.StatusBadRequest, errors.PasswordIncorrect, "Password is incorrect.")
 	}
@@ -111,13 +111,13 @@ func UsernamePasswordSignIn(c *fiber.Ctx) error {
 	// Get the user.
 	user, err := services.GetUserByUsername(signIn.Username)
 	if err != nil {
-		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err)
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err)
 	}
 
 	// Generate a new refresh token.
 	refreshToken, err := services.RotateRefreshToken(signIn.App, user.ID)
 	if err != nil {
-		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err)
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err)
 	}
 
 	// Generate a new access token.
@@ -128,12 +128,12 @@ func UsernamePasswordSignIn(c *fiber.Ctx) error {
 
 	// Save the token to the cache.
 	if err = services.TokenToCache(signIn.App, user.ID, accessToken, exp.Time, enums.Access); err != nil {
-		return errorutil.Response(c, fiber.StatusInternalServerError, errors.CacheError, err)
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.CacheError, err)
 	}
 
 	// Set user activity.
 	if err := services.SetLastLoginAt(signIn.App, user.ID, time.Now().UTC()); err != nil {
-		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err)
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err)
 	}
 
 	// Create a new response.
@@ -160,13 +160,13 @@ func Token(c *fiber.Ctx) error {
 	// Get the user.
 	user, err := services.GetUserByID(uint(accessClaims.Id))
 	if err != nil {
-		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err)
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err)
 	}
 
 	// Generate a new refresh token.
 	refreshToken, err := services.RotateRefreshToken(accessClaims.App, user.ID)
 	if err != nil {
-		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err)
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err)
 	}
 
 	// Generate a new access token.
@@ -177,12 +177,12 @@ func Token(c *fiber.Ctx) error {
 
 	// Save the token to the cache.
 	if err = services.TokenToCache(accessClaims.App, user.ID, accessToken, exp.Time, enums.Access); err != nil {
-		return errorutil.Response(c, fiber.StatusInternalServerError, errors.CacheError, err)
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.CacheError, err)
 	}
 
 	// Set user activity.
 	if err := services.SetLastLoginAt(accessClaims.App, user.ID, time.Now().UTC()); err != nil {
-		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err)
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err)
 	}
 
 	// Create a new response.
@@ -202,22 +202,22 @@ func RefreshToken(c *fiber.Ctx) error {
 
 	// Check, if received JSON data is parsed.
 	if err := c.BodyParser(token); err != nil {
-		return errorutil.Response(c, fiber.StatusBadRequest, errors.BodyParse, err.Error())
+		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.BodyParse, err.Error())
 	}
 
 	// Validate token fields.
 	validate := utils.NewValidator()
 	if err := validate.Struct(token); err != nil {
-		return errorutil.Response(c, fiber.StatusBadRequest, errors.Validator, utils.ValidatorErrors(err))
+		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.Validator, utils.ValidatorErrors(err))
 	}
 
 	// Check if refresh token exists.
 	if valid, err := services.IsRefreshTokenValid(token.UserID, token.App, token.RefreshToken); err != nil {
-		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err.Error())
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 	} else if !valid {
 		// Destroy session against replay attacks.
 		if err := services.DestroyUserSessions(token.UserID); err != nil {
-			return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err.Error())
+			return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 		}
 
 		return errorutil.Response(c, fiber.StatusUnauthorized, errors.TokenRefreshInvalid, "Refresh token is invalid.")
@@ -226,12 +226,12 @@ func RefreshToken(c *fiber.Ctx) error {
 	// Get the user.
 	user, err := services.GetUserByID(token.UserID)
 	if err != nil {
-		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err)
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err)
 	}
 
 	// Delete the refresh token.
 	if err := services.DeleteRefreshToken(token.App, token.UserID); err != nil {
-		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err)
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err)
 	}
 
 	// Generate a new access token.
@@ -242,12 +242,12 @@ func RefreshToken(c *fiber.Ctx) error {
 
 	// Save the token to the cache.
 	if err = services.TokenToCache(token.App, user.ID, accessToken, exp.Time, enums.Access); err != nil {
-		return errorutil.Response(c, fiber.StatusInternalServerError, errors.CacheError, err)
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.CacheError, err)
 	}
 
 	// Set user activity.
 	if err := services.SetLastLoginAt(token.App, user.ID, time.Now().UTC()); err != nil {
-		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err)
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err)
 	}
 
 	// Create a new response.
@@ -281,12 +281,12 @@ func SignOut(c *fiber.Ctx) error {
 
 	// Delete the refresh token.
 	if err := services.DeleteRefreshToken(accessClaims.App, uint(accessClaims.Id)); err != nil {
-		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err)
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err)
 	}
 
 	// Delete the access token from the cache.
 	if err := services.TokenDeleteFromCache(accessClaims.App, uint(accessClaims.Id), enums.Access); err != nil {
-		return errorutil.Response(c, fiber.StatusInternalServerError, errors.CacheError, err)
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.CacheError, err)
 	}
 
 	return c.SendStatus(fiber.StatusNoContent)
@@ -299,19 +299,19 @@ func TokenPasswordReset(c *fiber.Ctx) error {
 
 	// Check, if received JSON data is parsed.
 	if err := c.BodyParser(token); err != nil {
-		return errorutil.Response(c, fiber.StatusBadRequest, errors.BodyParse, err.Error())
+		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.BodyParse, err.Error())
 	}
 
 	// Validate token fields.
 	validate := utils.NewValidator()
 	if err := validate.Struct(token); err != nil {
-		return errorutil.Response(c, fiber.StatusBadRequest, errors.Validator, utils.ValidatorErrors(err))
+		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.Validator, utils.ValidatorErrors(err))
 	}
 
 	// Get the user.
 	user, err := services.GetUserByEmail(token.Email)
 	if err != nil {
-		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err)
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err)
 	} else if user.ID == 0 {
 		return errorutil.Response(c, fiber.StatusNotFound, errors.EmailUnknown, "Email is unknown.")
 	}
@@ -324,7 +324,7 @@ func TokenPasswordReset(c *fiber.Ctx) error {
 
 	// Save the token to the cache.
 	if err = services.TokenToCache(token.App, user.ID, passwordResetToken, exp.Time, enums.PasswordReset); err != nil {
-		return errorutil.Response(c, fiber.StatusInternalServerError, errors.CacheError, err)
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.CacheError, err)
 	}
 
 	// Create a new response.
@@ -358,7 +358,7 @@ func TokenEmailVerification(c *fiber.Ctx) error {
 	// Get the user.
 	user, err := services.GetUserByID(uint(accessClaims.Id))
 	if err != nil {
-		return errorutil.Response(c, fiber.StatusInternalServerError, errors.QueryError, err)
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err)
 	} else if user.ID == 0 {
 		return errorutil.Response(c, fiber.StatusNotFound, errorutil.NotFound, "User not found.")
 	}
@@ -371,7 +371,7 @@ func TokenEmailVerification(c *fiber.Ctx) error {
 
 	// Save the token to the cache.
 	if err = services.TokenToCache(accessClaims.App, user.ID, emailVerificationToken, exp.Time, enums.EmailVerification); err != nil {
-		return errorutil.Response(c, fiber.StatusInternalServerError, errors.CacheError, err)
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.CacheError, err)
 	}
 
 	// Create a new response.

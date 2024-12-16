@@ -2,7 +2,7 @@ package responses
 
 import (
 	"api-auth/main/src/models"
-	"api-auth/main/src/utils"
+	util "github.com/ArnoldPMolenaar/api-utils/utils"
 	"github.com/golang-jwt/jwt/v5"
 	"time"
 )
@@ -58,7 +58,7 @@ func (u *UsernamePasswordSignIn) SetUsernamePasswordSignIn(
 	u.Roles = map[string][]string{}
 
 	for i := range user.AppRoles {
-		var roleName = utils.PascalCaseToCamelcase(user.AppRoles[i].RoleName)
+		var roleName = util.PascalCaseToCamelcase(user.AppRoles[i].RoleName)
 		u.Roles[roleName] = []string{}
 		for j := range user.AppRoles[i].Role.Permissions {
 			u.Roles[roleName] = append(u.Roles[roleName], user.AppRoles[i].Role.Permissions[j].Name)

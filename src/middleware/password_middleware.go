@@ -68,7 +68,7 @@ func PasswordProtected() func(*fiber.Ctx) error {
 			return errorsutil.Response(
 				c,
 				fiber.StatusInternalServerError,
-				errorint.CacheError,
+				errorsutil.CacheError,
 				err.Error(),
 			)
 		} else if !exists {
@@ -85,7 +85,7 @@ func PasswordProtected() func(*fiber.Ctx) error {
 			return errorsutil.Response(
 				c,
 				fiber.StatusInternalServerError,
-				errorint.CacheError,
+				errorsutil.CacheError,
 				err.Error(),
 			)
 		} else if token != resetToken {
