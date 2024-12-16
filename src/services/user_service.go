@@ -257,6 +257,13 @@ func SetLastLoginAt(app string, userID uint, lastLoginAt time.Time) error {
 
 // UpdateUser method to update a user.
 func UpdateUser(user *models.User, requestUser *requests.UpdateUser) (*models.User, error) {
+	if requestUser.Email != user.Email {
+		user.EmailVerifiedAt = sql.NullTime{}
+	}
+	if requestUser.PhoneNumber != user.PhoneNumber {
+		user.PhoneVerifiedAt = sql.NullTime{}
+	}
+
 	user.Username = requestUser.Username
 	user.Email = requestUser.Email
 	user.PhoneNumber = requestUser.PhoneNumber
