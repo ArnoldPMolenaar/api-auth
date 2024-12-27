@@ -20,6 +20,11 @@ func PrivateRoutes(a *fiber.App) {
 	// Register a route for GET /v1/user/recipes.
 	route.Get("/user/recipes", controllers.GetUserRecipesByUsername)
 
+	// Register available routes.
+	route.Get("/user/username/available", controllers.IsUsernameAvailable)
+	route.Get("/user/email/available", controllers.IsEmailAvailable)
+	route.Get("/user/phone-number/available", controllers.IsPhoneNumberAvailable)
+
 	// Username-password group.
 	routeUsernamePassword := route.Group("/username-password")
 	routeUsernamePassword.Post("/sign-in", controllers.UsernamePasswordSignIn)

@@ -117,6 +117,57 @@ func GetUsers(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(paginationModel)
 }
 
+// IsUsernameAvailable method to check if username is available.
+func IsUsernameAvailable(c *fiber.Ctx) error {
+	username := string(c.Request().URI().QueryArgs().Peek("username"))
+	if username == "" {
+		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.MissingRequiredParam, "Username is required.")
+	}
+
+	if available, err := services.IsUsernameAvailable(username); err != nil {
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
+	} else {
+		response := responses.Available{}
+		response.SetAvailable(available)
+
+		return c.JSON(response)
+	}
+}
+
+// IsEmailAvailable method to check if email is available.
+func IsEmailAvailable(c *fiber.Ctx) error {
+	email := string(c.Request().URI().QueryArgs().Peek("email"))
+	if email == "" {
+		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.MissingRequiredParam, "Email is required.")
+	}
+
+	if available, err := services.IsEmailAvailable(email); err != nil {
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
+	} else {
+		response := responses.Available{}
+		response.SetAvailable(available)
+
+		return c.JSON(response)
+	}
+}
+
+// IsPhoneNumberAvailable method to check if phone number is available.
+func IsPhoneNumberAvailable(c *fiber.Ctx) error {
+	phoneNumber := string(c.Request().URI().QueryArgs().Peek("phoneNumber"))
+	if phoneNumber == "" {
+		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.MissingRequiredParam, "Phone number is required.")
+	}
+
+	if available, err := services.IsPhoneNumberAvailable(&phoneNumber); err != nil {
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
+	} else {
+		response := responses.Available{}
+		response.SetAvailable(available)
+
+		return c.JSON(response)
+	}
+}
+
 // UpdateUser method to update user by ID.
 func UpdateUser(c *fiber.Ctx) error {
 	// Get the userID parameter from the URL.
