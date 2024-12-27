@@ -133,16 +133,16 @@ func SignUp(signUp *requests.SignUp) (responses.SignUp, error) {
 	// Bind the user recipes.
 	for _, recipe := range signUp.Recipes {
 		user.AppRecipes = append(user.AppRecipes, models.UserAppRecipe{
-			AppName:    signUp.App,
-			RecipeName: recipe,
+			AppName:    recipe.App,
+			RecipeName: recipe.Recipe,
 		})
 	}
 
 	// Bind the user roles.
 	for _, role := range signUp.Roles {
 		user.AppRoles = append(user.AppRoles, models.UserAppRole{
-			AppName:  signUp.App,
-			RoleName: role,
+			AppName:  role.App,
+			RoleName: role.Role,
 		})
 	}
 

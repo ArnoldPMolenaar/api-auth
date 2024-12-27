@@ -28,12 +28,15 @@ func SignUp(c *fiber.Ctx) error {
 	if err := validate.Struct(signUp); err != nil {
 		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.Validator, utils.ValidatorErrors(err))
 	}
-
-	// Check if app exists.
-	if available, err := services.IsAppAvailable(signUp.App); err != nil {
-		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
-	} else if !available {
-		return errorutil.Response(c, fiber.StatusBadRequest, errors.AppExists, "AppName does not exist.")
+	for _, item := range signUp.Roles {
+		if err := validate.Struct(item); err != nil {
+			return errorutil.Response(c, fiber.StatusBadRequest, errorutil.Validator, utils.ValidatorErrors(err))
+		}
+	}
+	for _, item := range signUp.Recipes {
+		if err := validate.Struct(item); err != nil {
+			return errorutil.Response(c, fiber.StatusBadRequest, errorutil.Validator, utils.ValidatorErrors(err))
+		}
 	}
 
 	// Check if user already exists.

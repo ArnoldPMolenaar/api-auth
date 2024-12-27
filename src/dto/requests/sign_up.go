@@ -1,12 +1,13 @@
 package requests
 
+import "api-auth/main/src/dto/responses"
+
 // SignUp struct for username password signup request.
 type SignUp struct {
-	App         string   `json:"app" validate:"required"`
-	Username    string   `json:"username" validate:"required"`
-	Email       string   `json:"email" validate:"required,email"`
-	PhoneNumber *string  `json:"phoneNumber"`
-	Password    string   `json:"password"`
-	Roles       []string `json:"roles"`
-	Recipes     []string `json:"recipes"`
+	Username    string                `json:"username" validate:"required"`
+	Email       string                `json:"email" validate:"required,email"`
+	PhoneNumber *string               `json:"phoneNumber"`
+	Password    string                `json:"password"`
+	Roles       []responses.AppRole   `json:"roles"`
+	Recipes     []responses.AppRecipe `json:"recipes"`
 }
