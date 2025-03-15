@@ -10,6 +10,6 @@ type UpdateUser struct {
 	Email       string                `json:"email" validate:"required,email"`
 	PhoneNumber *string               `json:"phoneNumber"`
 	UpdatedAt   time.Time             `json:"updatedAt" validate:"required"`
-	Roles       []responses.AppRole   `json:"roles"`
-	Recipes     []responses.AppRecipe `json:"recipes"`
+	Roles       []responses.AppRole   `json:"roles" validate:"dive"`
+	Recipes     []responses.AppRecipe `json:"recipes" validate:"dive"`
 }

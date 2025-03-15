@@ -191,16 +191,6 @@ func UpdateUser(c *fiber.Ctx) error {
 	if err := validate.Struct(requestUser); err != nil {
 		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.Validator, util.ValidatorErrors(err))
 	}
-	for _, item := range requestUser.Roles {
-		if err := validate.Struct(item); err != nil {
-			return errorutil.Response(c, fiber.StatusBadRequest, errorutil.Validator, util.ValidatorErrors(err))
-		}
-	}
-	for _, item := range requestUser.Recipes {
-		if err := validate.Struct(item); err != nil {
-			return errorutil.Response(c, fiber.StatusBadRequest, errorutil.Validator, util.ValidatorErrors(err))
-		}
-	}
 
 	// Get the user.
 	user, err := services.GetUserByID(userID)

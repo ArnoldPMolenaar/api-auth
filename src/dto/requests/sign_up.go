@@ -8,6 +8,6 @@ type SignUp struct {
 	Email       string                `json:"email" validate:"required,email"`
 	PhoneNumber *string               `json:"phoneNumber"`
 	Password    string                `json:"password"`
-	Roles       []responses.AppRole   `json:"roles"`
-	Recipes     []responses.AppRecipe `json:"recipes"`
+	Roles       []responses.AppRole   `json:"roles" validate:"dive"`
+	Recipes     []responses.AppRecipe `json:"recipes" validate:"dive"`
 }
