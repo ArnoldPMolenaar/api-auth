@@ -42,6 +42,11 @@ This is an Authentication API built with Go and Fiber. It supports user sign-in,
 
 ### User Authentication
 
+### App
+- **App**: `POST /v1/apps`
+    - Create a new app.
+    - Request body: `{ "name": "app" }`
+
 - **Sign-Up**: `POST /v1/sign-up`
     - Register a new user.
     - Request body: `{ "username": "user", "email": "user@example.com", "password": "password" }`
