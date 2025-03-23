@@ -6,6 +6,7 @@ import (
 	"api-auth/main/src/dto/responses"
 	"api-auth/main/src/enums"
 	"api-auth/main/src/errors"
+	"api-auth/main/src/models"
 	"api-auth/main/src/services"
 	errorutil "github.com/ArnoldPMolenaar/api-utils/errors"
 	"github.com/ArnoldPMolenaar/api-utils/utils"
@@ -107,12 +108,6 @@ func UsernamePasswordSignIn(c *fiber.Ctx) error {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err)
 	}
 
-	// Generate a new refresh token.
-	refreshToken, err := services.RotateRefreshToken(signIn.App, user.ID)
-	if err != nil {
-		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err)
-	}
-
 	// Generate a new access token.
 	accessToken, exp, err := services.TokenCreate(services.TokenCreateAccessClaim(&user, signIn.App), services.TokenAccessExpireMinutes, time.Minute, enums.Access)
 	if err != nil {
@@ -131,7 +126,7 @@ func UsernamePasswordSignIn(c *fiber.Ctx) error {
 
 	// Create a new response.
 	response := &responses.UsernamePasswordSignIn{}
-	response.SetUsernamePasswordSignIn(&user, accessToken, exp, refreshToken)
+	response.SetUsernamePasswordSignIn(&user, accessToken, exp)
 
 	return c.JSON(response)
 }
@@ -139,6 +134,9 @@ func UsernamePasswordSignIn(c *fiber.Ctx) error {
 // Token method to create a new access token and invalidate the old one.
 // Used to refresh the session.
 func Token(c *fiber.Ctx) error {
+	// Get deviceID from query.
+	deviceID := c.Query("deviceId")
+
 	// Get app and userID from claims.
 	claim := c.Locals("claims")
 	if claim == nil {
@@ -157,9 +155,16 @@ func Token(c *fiber.Ctx) error {
 	}
 
 	// Generate a new refresh token.
-	refreshToken, err := services.RotateRefreshToken(accessClaims.App, user.ID)
-	if err != nil {
-		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err)
+	var refreshToken *models.UserAppRefreshToken
+	if deviceID != "" {
+		if used, err := services.IsRefreshTokenUsed(user.ID, accessClaims.App, deviceID); err != nil {
+			return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err)
+		} else if used {
+			refreshToken, err = services.RotateRefreshToken(accessClaims.App, deviceID, user.ID)
+			if err != nil {
+				return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err)
+			}
+		}
 	}
 
 	// Generate a new access token.
@@ -186,6 +191,38 @@ func Token(c *fiber.Ctx) error {
 	return c.JSON(response)
 }
 
+// CreateRefreshToken method to create a new refresh token.
+func CreateRefreshToken(c *fiber.Ctx) error {
+	// Get deviceID from query.
+	deviceID := c.Query("deviceId")
+	if deviceID == "" {
+		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.InvalidParam, "Device ID is required.")
+	}
+
+	// Get app and userID from claims.
+	claim := c.Locals("claims")
+	if claim == nil {
+		return errorutil.Response(c, fiber.StatusUnauthorized, errorutil.Unauthorized, "Claims not found.")
+	}
+
+	accessClaims, ok := claim.(*claims.AccessClaims)
+	if !ok {
+		return errorutil.Response(c, fiber.StatusUnauthorized, errorutil.Unauthorized, "Invalid claims type.")
+	}
+
+	// Generate a new refresh token.
+	refreshToken, err := services.RotateRefreshToken(accessClaims.App, deviceID, uint(accessClaims.Id))
+	if err != nil {
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err)
+	}
+
+	// Create a new response.
+	response := &responses.Token{}
+	response.SetToken(refreshToken.Token, refreshToken.ValidUntil)
+
+	return c.JSON(response)
+}
+
 // RefreshToken method to refresh the access token.
 // This endpoint is unsecured. So we don't rotate the refresh token.
 // When the refresh-token is used on this endpoint, the refresh-token is deleted.
@@ -205,7 +242,7 @@ func RefreshToken(c *fiber.Ctx) error {
 	}
 
 	// Check if refresh token exists.
-	if valid, err := services.IsRefreshTokenValid(token.UserID, token.App, token.RefreshToken); err != nil {
+	if valid, err := services.IsRefreshTokenValid(token.UserID, token.DeviceID, token.App, token.RefreshToken); err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 	} else if !valid {
 		// Destroy session against replay attacks.
@@ -223,7 +260,7 @@ func RefreshToken(c *fiber.Ctx) error {
 	}
 
 	// Delete the refresh token.
-	if err := services.DeleteRefreshToken(token.App, token.UserID); err != nil {
+	if err := services.DeleteRefreshToken(token.App, token.DeviceID, token.UserID); err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err)
 	}
 
@@ -244,8 +281,8 @@ func RefreshToken(c *fiber.Ctx) error {
 	}
 
 	// Create a new response.
-	response := &responses.RefreshToken{}
-	response.SetAccessToken(accessToken, exp)
+	response := &responses.Token{}
+	response.SetToken(accessToken, exp.Time)
 
 	return c.JSON(response)
 }
@@ -261,6 +298,14 @@ func TokenVerify(c *fiber.Ctx) error {
 // SignOut method to sign out the user.
 // Also deletes the refresh-token because of explicit sign-out.
 func SignOut(c *fiber.Ctx) error {
+	// Create a new signOut request.
+	signOut := &requests.SignOut{}
+
+	// Check, if received JSON data is parsed.
+	if err := c.BodyParser(signOut); err != nil {
+		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.BodyParse, err.Error())
+	}
+
 	// Get app and userID from claims.
 	claim := c.Locals("claims")
 	if claim == nil {
@@ -273,8 +318,10 @@ func SignOut(c *fiber.Ctx) error {
 	}
 
 	// Delete the refresh token.
-	if err := services.DeleteRefreshToken(accessClaims.App, uint(accessClaims.Id)); err != nil {
-		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err)
+	if signOut.DeviceID != "" {
+		if err := services.DeleteRefreshToken(accessClaims.App, signOut.DeviceID, uint(accessClaims.Id)); err != nil {
+			return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err)
+		}
 	}
 
 	// Delete the access token from the cache.

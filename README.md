@@ -55,9 +55,13 @@ This is an Authentication API built with Go and Fiber. It supports user sign-in,
     - Authenticate a user with username and password.
     - Request body: `{ "username": "user", "password": "password" }`
 
+  - **Create Refresh Token**: `GET /v1/token/refresh`
+    - Get a new refresh token. that registered on that device.
+    - Request body: `{ "deviceId": "device_id" }`
+
 - **Refresh Token**: `POST /v1/refresh-token`
     - Refresh the user session with a refresh token.
-    - Request body: `{ "refresh_token": "token" }`
+    - Request body: `{ "refreshToken": "token" }`
 
 ### Password Management
 
@@ -69,7 +73,7 @@ This is an Authentication API built with Go and Fiber. It supports user sign-in,
 
 - **Verify Email**: `POST /v1/verify-email`
     - Verify the user's email address.
-    - Request body: `{ "user_id": 1, "email": "user@example.com" }`
+    - Request body: `{ "userId": 1, "email": "user@example.com" }`
 
 ### User Management
 
@@ -83,7 +87,7 @@ This is an Authentication API built with Go and Fiber. It supports user sign-in,
 
 - **Delete User**: `DELETE /v1/user`
     - Delete a user.
-    - Request parameters: `user_id`
+    - Request parameters: `userId`
 
 ## 🤝 Contributing
 
@@ -96,4 +100,4 @@ This project is licensed under the MIT License.
 ## 📞 Contact
 
 For any questions or support, please contact [arnold.molenaar@webmi.nl](mailto:arnold.molenaar@webmi.nl).
-<hr></hr> Made with ❤️ by Arnold Molenaar
+<hr> Made with ❤️ by Arnold Molenaar

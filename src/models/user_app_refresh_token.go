@@ -4,6 +4,7 @@ import "time"
 
 type UserAppRefreshToken struct {
 	UserID     uint      `gorm:"primaryKey:true;not null;autoIncrement:false"`
+	DeviceID   string    `gorm:"primaryKey:true;not null;autoIncrement:false"`
 	AppName    string    `gorm:"primaryKey:true;not null;autoIncrement:false"`
 	Token      string    `gorm:"not null"`
 	ValidUntil time.Time `gorm:"not null"`

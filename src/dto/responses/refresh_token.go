@@ -12,20 +12,17 @@ type RefreshToken struct {
 }
 
 // SetAccessToken method to set access token in refresh token response from access token and access token expires at.
-func (r *RefreshToken) SetAccessToken(
-	accessToken string,
-	accessTokenExpiresAt *jwt.NumericDate) {
-	r.AccessToken = Token{
-		Token:     accessToken,
-		ExpiresAt: accessTokenExpiresAt.Time,
-	}
+func (r *RefreshToken) SetAccessToken(accessToken string, accessTokenExpiresAt *jwt.NumericDate) {
+	r.AccessToken = Token{}
+	r.AccessToken.SetToken(accessToken, accessTokenExpiresAt.Time)
 }
 
 // SetRefreshToken method to set refresh token response from refresh token data model.
-func (r *RefreshToken) SetRefreshToken(
-	refreshToken *models.UserAppRefreshToken) {
-	r.RefreshToken = &Token{
-		Token:     refreshToken.Token,
-		ExpiresAt: refreshToken.ValidUntil,
+func (r *RefreshToken) SetRefreshToken(refreshToken *models.UserAppRefreshToken) {
+	if refreshToken == nil {
+		return
 	}
+
+	r.RefreshToken = &Token{}
+	r.RefreshToken.SetToken(refreshToken.Token, refreshToken.ValidUntil)
 }

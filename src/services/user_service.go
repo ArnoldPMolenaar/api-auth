@@ -90,11 +90,24 @@ func IsPasswordCorrect(username, password string) (bool, error) {
 }
 
 // IsRefreshTokenValid method to check if a refresh token is valid.
-func IsRefreshTokenValid(userID uint, app, refreshToken string) (bool, error) {
+func IsRefreshTokenValid(userID uint, deviceID, app, refreshToken string) (bool, error) {
 	var count int64
 
 	if result := database.Pg.Model(&models.UserAppRefreshToken{}).
-		Where("user_id = ? AND app_name = ? AND token = ? AND valid_until > ?", userID, app, refreshToken, time.Now().UTC()).
+		Where("user_id = ? AND device_id = ? AND app_name = ? AND token = ? AND valid_until > ?", userID, deviceID, app, refreshToken, time.Now().UTC()).
+		Count(&count); result.Error != nil {
+		return false, result.Error
+	}
+
+	return count > 0, nil
+}
+
+// IsRefreshTokenUsed method to check if a refresh token is used on that device.
+func IsRefreshTokenUsed(userID uint, app, deviceID string) (bool, error) {
+	var count int64
+
+	if result := database.Pg.Model(&models.UserAppRefreshToken{}).
+		Where("user_id = ? AND app_name = ? AND device_id = ?", userID, app, deviceID).
 		Count(&count); result.Error != nil {
 		return false, result.Error
 	}
@@ -222,9 +235,10 @@ func GetUserByID(userID uint, unscoped ...bool) (models.User, error) {
 
 // RotateRefreshToken method to rotate a refresh token.
 // It Inserts or Updates the refresh token and returns the new token.
-func RotateRefreshToken(app string, userID uint) (*models.UserAppRefreshToken, error) {
+func RotateRefreshToken(app, deviceID string, userID uint) (*models.UserAppRefreshToken, error) {
 	refreshToken := &models.UserAppRefreshToken{
 		UserID:     userID,
+		DeviceID:   deviceID,
 		AppName:    app,
 		Token:      uuid.NewString(),
 		ValidUntil: TokenRefreshValidUntil(),
@@ -387,8 +401,8 @@ func RestoreUser(userID uint) error {
 }
 
 // DeleteRefreshToken method to delete a refresh token.
-func DeleteRefreshToken(app string, userID uint) error {
-	if result := database.Pg.Delete(&models.UserAppRefreshToken{}, "app_name = ? AND user_id = ?", app, userID); result.Error != nil {
+func DeleteRefreshToken(app, deviceID string, userID uint) error {
+	if result := database.Pg.Delete(&models.UserAppRefreshToken{}, "app_name = ? AND device_id = ? AND  user_id = ?", app, deviceID, userID); result.Error != nil {
 		return result.Error
 	}
 

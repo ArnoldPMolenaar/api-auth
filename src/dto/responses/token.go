@@ -1,7 +1,6 @@
 package responses
 
 import (
-	"github.com/golang-jwt/jwt/v5"
 	"time"
 )
 
@@ -12,7 +11,7 @@ type Token struct {
 }
 
 // SetToken sets the token and its expiry time.
-func (t *Token) SetToken(token string, expiresAt *jwt.NumericDate) {
+func (t *Token) SetToken(token string, expiresAt time.Time) {
 	t.Token = token
-	t.ExpiresAt = expiresAt.Time
+	t.ExpiresAt = expiresAt
 }

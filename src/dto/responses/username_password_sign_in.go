@@ -18,7 +18,6 @@ type UsernamePasswordSignIn struct {
 	CreatedAt       time.Time           `json:"createdAt"`
 	UpdatedAt       time.Time           `json:"updatedAt"`
 	AccessToken     Token               `json:"accessToken"`
-	RefreshToken    Token               `json:"refreshToken"`
 	Roles           map[string][]string `json:"roles"`
 }
 
@@ -26,8 +25,7 @@ type UsernamePasswordSignIn struct {
 func (u *UsernamePasswordSignIn) SetUsernamePasswordSignIn(
 	user *models.User,
 	accessToken string,
-	accessTokenExpiresAt *jwt.NumericDate,
-	refreshToken *models.UserAppRefreshToken) {
+	accessTokenExpiresAt *jwt.NumericDate) {
 	u.ID = user.ID
 	u.Username = user.Username
 	u.Email = user.Email
@@ -50,10 +48,6 @@ func (u *UsernamePasswordSignIn) SetUsernamePasswordSignIn(
 	u.AccessToken = Token{
 		Token:     accessToken,
 		ExpiresAt: accessTokenExpiresAt.Time,
-	}
-	u.RefreshToken = Token{
-		Token:     refreshToken.Token,
-		ExpiresAt: refreshToken.ValidUntil,
 	}
 	u.Roles = map[string][]string{}
 
