@@ -281,8 +281,9 @@ func RefreshToken(c *fiber.Ctx) error {
 	}
 
 	// Create a new response.
-	response := &responses.Token{}
-	response.SetToken(accessToken, exp.Time)
+	// The refresh-token endpoint has the same behavior as a clean sign-in.
+	response := &responses.UsernamePasswordSignIn{}
+	response.SetUsernamePasswordSignIn(&user, accessToken, exp)
 
 	return c.JSON(response)
 }
