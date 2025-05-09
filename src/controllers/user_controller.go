@@ -423,6 +423,22 @@ func DeleteUser(c *fiber.Ctx) error {
 		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.InvalidParam, "Invalid User ID.")
 	}
 
+	// Get userID from claims.
+	claim := c.Locals("claims")
+	if claim == nil {
+		return errorutil.Response(c, fiber.StatusUnauthorized, errorutil.Unauthorized, "Claims not found.")
+	}
+
+	accessClaims, ok := claim.(*claims.AccessClaims)
+	if !ok {
+		return errorutil.Response(c, fiber.StatusUnauthorized, errorutil.Unauthorized, "Invalid claims type.")
+	}
+
+	// Check if the userID is not the same as the logged-in user.
+	if int(userID) == accessClaims.Id {
+		return errorutil.Response(c, fiber.StatusBadRequest, errors.NoSelfDelete, "It is not possible to delete yourself")
+	}
+
 	// Get the user.
 	user, err := services.GetUserByID(userID)
 	if err != nil {

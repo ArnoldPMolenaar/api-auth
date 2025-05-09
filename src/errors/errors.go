@@ -15,5 +15,6 @@ const (
 	TokenNoBearerAuthorizationHeaderFormat = "tokenNoBearerAuthorizationHeaderFormat"
 	TokenExtraction                        = "tokenExtraction"
 	InvalidPassword                        = "invalidPassword"
+	NoSelfDelete                           = "noSelfDelete"
 	// Add more error codes as needed.
 )
