@@ -417,7 +417,7 @@ func TokenEmailVerification(c *fiber.Ctx) error {
 
 	// Create a new response.
 	response := &responses.EmailVerification{}
-	response.SetEmailVerification(user.ID, emailVerificationToken, exp)
+	response.SetEmailVerification(user.ID, user.Email, emailVerificationToken, exp)
 
 	return c.JSON(response)
 }
