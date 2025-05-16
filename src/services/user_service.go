@@ -434,7 +434,7 @@ func DestroyUserSessions(userID uint) error {
 
 	// Delete all access tokens from the cache.
 	for i := range apps {
-		if err := TokenDeleteFromCache(apps[i], userID, enums.Access); err != nil {
+		if err := TokenDeleteAllFromCache(apps[i], userID, enums.Access); err != nil {
 			return err
 		}
 	}

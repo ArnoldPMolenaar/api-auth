@@ -116,13 +116,17 @@ func UsernamePasswordSignIn(c *fiber.Ctx) error {
 	}
 
 	// Generate a new access token.
-	accessToken, exp, err := services.TokenCreate(services.TokenCreateAccessClaim(&user, signIn.App), services.TokenAccessExpireMinutes, time.Minute, enums.Access)
+	accessToken, exp, err := services.TokenCreate(
+		services.TokenCreateAccessClaim(&user, signIn.App, signIn.DeviceID),
+		services.TokenAccessExpireMinutes,
+		time.Minute,
+		enums.Access)
 	if err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errors.TokenCreate, err)
 	}
 
 	// Save the token to the cache.
-	if err = services.TokenToCache(signIn.App, user.ID, accessToken, exp.Time, enums.Access); err != nil {
+	if err = services.TokenToCache(signIn.App, signIn.DeviceID, user.ID, accessToken, exp.Time, enums.Access); err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.CacheError, err)
 	}
 
@@ -175,13 +179,17 @@ func Token(c *fiber.Ctx) error {
 	}
 
 	// Generate a new access token.
-	accessToken, exp, err := services.TokenCreate(services.TokenCreateAccessClaim(&user, accessClaims.App), services.TokenAccessExpireMinutes, time.Minute, enums.Access)
+	accessToken, exp, err := services.TokenCreate(
+		services.TokenCreateAccessClaim(&user, accessClaims.App, accessClaims.DeviceID),
+		services.TokenAccessExpireMinutes,
+		time.Minute,
+		enums.Access)
 	if err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errors.TokenCreate, err)
 	}
 
 	// Save the token to the cache.
-	if err = services.TokenToCache(accessClaims.App, user.ID, accessToken, exp.Time, enums.Access); err != nil {
+	if err = services.TokenToCache(accessClaims.App, deviceID, user.ID, accessToken, exp.Time, enums.Access); err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.CacheError, err)
 	}
 
@@ -272,13 +280,16 @@ func RefreshToken(c *fiber.Ctx) error {
 	}
 
 	// Generate a new access token.
-	accessToken, exp, err := services.TokenCreate(services.TokenCreateAccessClaim(&user, token.App), services.TokenAccessExpireMinutes, time.Minute, enums.Access)
+	accessToken, exp, err := services.TokenCreate(services.TokenCreateAccessClaim(&user, token.App, token.DeviceID),
+		services.TokenAccessExpireMinutes,
+		time.Minute,
+		enums.Access)
 	if err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errors.TokenCreate, err)
 	}
 
 	// Save the token to the cache.
-	if err = services.TokenToCache(token.App, user.ID, accessToken, exp.Time, enums.Access); err != nil {
+	if err = services.TokenToCache(token.App, token.DeviceID, user.ID, accessToken, exp.Time, enums.Access); err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.CacheError, err)
 	}
 
@@ -314,6 +325,12 @@ func SignOut(c *fiber.Ctx) error {
 		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.BodyParse, err.Error())
 	}
 
+	// Validate signOut fields.
+	validate := utils.NewValidator()
+	if err := validate.Struct(signOut); err != nil {
+		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.Validator, utils.ValidatorErrors(err))
+	}
+
 	// Get app and userID from claims.
 	claim := c.Locals("claims")
 	if claim == nil {
@@ -326,14 +343,12 @@ func SignOut(c *fiber.Ctx) error {
 	}
 
 	// Delete the refresh token.
-	if signOut.DeviceID != "" {
-		if err := services.DeleteRefreshToken(accessClaims.App, signOut.DeviceID, uint(accessClaims.Id)); err != nil {
-			return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err)
-		}
+	if err := services.DeleteRefreshToken(accessClaims.App, signOut.DeviceID, uint(accessClaims.Id)); err != nil {
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err)
 	}
 
 	// Delete the access token from the cache.
-	if err := services.TokenDeleteFromCache(accessClaims.App, uint(accessClaims.Id), enums.Access); err != nil {
+	if err := services.TokenDeleteFromCache(accessClaims.App, signOut.DeviceID, uint(accessClaims.Id), enums.Access); err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.CacheError, err)
 	}
 
@@ -365,13 +380,13 @@ func TokenPasswordReset(c *fiber.Ctx) error {
 	}
 
 	// Generate a new password reset token.
-	passwordResetToken, exp, err := services.TokenCreate(services.TokenCreatePasswordResetClaim(user.ID, token.App), services.TokenPasswordResetExpireMinutes, time.Minute, enums.PasswordReset)
+	passwordResetToken, exp, err := services.TokenCreate(services.TokenCreatePasswordResetClaim(user.ID, token.App, token.DeviceID), services.TokenPasswordResetExpireMinutes, time.Minute, enums.PasswordReset)
 	if err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errors.TokenCreate, err)
 	}
 
 	// Save the token to the cache.
-	if err = services.TokenToCache(token.App, user.ID, passwordResetToken, exp.Time, enums.PasswordReset); err != nil {
+	if err = services.TokenToCache(token.App, token.DeviceID, user.ID, passwordResetToken, exp.Time, enums.PasswordReset); err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.CacheError, err)
 	}
 
@@ -392,6 +407,20 @@ func TokenPasswordResetVerify(c *fiber.Ctx) error {
 
 // TokenEmailVerification method to create a new email verification token.
 func TokenEmailVerification(c *fiber.Ctx) error {
+	// Create a new emailVerification request.
+	emailVerification := &requests.EmailVerification{}
+
+	// Check, if received JSON data is parsed.
+	if err := c.BodyParser(emailVerification); err != nil {
+		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.BodyParse, err.Error())
+	}
+
+	// Validate emailVerification fields.
+	validate := utils.NewValidator()
+	if err := validate.Struct(emailVerification); err != nil {
+		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.Validator, utils.ValidatorErrors(err))
+	}
+
 	// Get app and userID from claims.
 	claim := c.Locals("claims")
 	if claim == nil {
@@ -412,13 +441,17 @@ func TokenEmailVerification(c *fiber.Ctx) error {
 	}
 
 	// Generate a new email verification token.
-	emailVerificationToken, exp, err := services.TokenCreate(services.TokenCreateEmailVerificationClaim(user.ID, accessClaims.App, user.Email), services.TokenEmailVerificationExpireHours, time.Hour, enums.EmailVerification)
+	emailVerificationToken, exp, err := services.TokenCreate(
+		services.TokenCreateEmailVerificationClaim(user.ID, accessClaims.App, emailVerification.DeviceID, user.Email),
+		services.TokenEmailVerificationExpireHours,
+		time.Hour,
+		enums.EmailVerification)
 	if err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errors.TokenCreate, err)
 	}
 
 	// Save the token to the cache.
-	if err = services.TokenToCache(accessClaims.App, user.ID, emailVerificationToken, exp.Time, enums.EmailVerification); err != nil {
+	if err = services.TokenToCache(accessClaims.App, emailVerification.DeviceID, user.ID, emailVerificationToken, exp.Time, enums.EmailVerification); err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.CacheError, err)
 	}
 

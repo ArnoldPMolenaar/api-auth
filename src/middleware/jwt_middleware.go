@@ -67,7 +67,7 @@ func JWTProtected() func(*fiber.Ctx) error {
 		}
 
 		// Check if token exists in the cache.
-		if exists, err := services.TokenExistsInCache(accessClaims.App, uint(accessClaims.Id), enums.Access); err != nil {
+		if exists, err := services.TokenExistsInCache(accessClaims.App, accessClaims.DeviceID, uint(accessClaims.Id), enums.Access); err != nil {
 			return errorsutil.Response(
 				c,
 				fiber.StatusInternalServerError,
@@ -84,7 +84,7 @@ func JWTProtected() func(*fiber.Ctx) error {
 		}
 
 		// Check if token is equal to the one in the cache.
-		if token, err := services.TokenFromCache(accessClaims.App, uint(accessClaims.Id), enums.Access); err != nil {
+		if token, err := services.TokenFromCache(accessClaims.App, accessClaims.DeviceID, uint(accessClaims.Id), enums.Access); err != nil {
 			return errorsutil.Response(
 				c,
 				fiber.StatusInternalServerError,

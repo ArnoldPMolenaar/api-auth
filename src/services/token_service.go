@@ -142,11 +142,12 @@ func TokenRefreshValidUntil() time.Time {
 }
 
 // TokenCreateAccessClaim creates a new access claim from the given user.
-func TokenCreateAccessClaim(user *models.User, app string) claims.AccessClaims {
+func TokenCreateAccessClaim(user *models.User, app, deviceID string) claims.AccessClaims {
 	claim := claims.AccessClaims{
 		IdentityClaims: claims.IdentityClaims{
-			Id:  int(user.ID),
-			App: app,
+			Id:       int(user.ID),
+			App:      app,
+			DeviceID: deviceID,
 		},
 		IsEmailVerified: user.EmailVerifiedAt.Valid,
 		IsPhoneVerified: user.PhoneVerifiedAt.Valid,
@@ -168,22 +169,24 @@ func TokenCreateAccessClaim(user *models.User, app string) claims.AccessClaims {
 }
 
 // TokenCreatePasswordResetClaim creates a new password reset claim from the given user.
-func TokenCreatePasswordResetClaim(userID uint, app string) claims.PasswordResetClaims {
+func TokenCreatePasswordResetClaim(userID uint, app, deviceID string) claims.PasswordResetClaims {
 	return claims.PasswordResetClaims{
 		IdentityClaims: claims.IdentityClaims{
-			Id:  int(userID),
-			App: app,
+			Id:       int(userID),
+			App:      app,
+			DeviceID: deviceID,
 		},
 		Type: enums.PasswordReset,
 	}
 }
 
 // TokenCreateEmailVerificationClaim creates a new email verification claim from the given user.
-func TokenCreateEmailVerificationClaim(userID uint, app, email string) claims.EmailVerificationClaims {
+func TokenCreateEmailVerificationClaim(userID uint, app, deviceID, email string) claims.EmailVerificationClaims {
 	return claims.EmailVerificationClaims{
 		IdentityClaims: claims.IdentityClaims{
-			Id:  int(userID),
-			App: app,
+			Id:       int(userID),
+			App:      app,
+			DeviceID: deviceID,
 		},
 		Type:  enums.EmailVerification,
 		Email: email,
@@ -191,8 +194,8 @@ func TokenCreateEmailVerificationClaim(userID uint, app, email string) claims.Em
 }
 
 // TokenFromCache returns the token from the cache.
-func TokenFromCache(app string, userID uint, tokenType enums.TokenType) (string, error) {
-	key := cacheKey(app, userID, tokenType)
+func TokenFromCache(app, deviceID string, userID uint, tokenType enums.TokenType) (string, error) {
+	key := cacheKey(app, deviceID, userID, tokenType)
 
 	if result := cache.Valkey.Do(context.Background(), cache.Valkey.B().Get().Key(key).Build()); result.Error() != nil {
 		return "", result.Error()
@@ -206,8 +209,8 @@ func TokenFromCache(app string, userID uint, tokenType enums.TokenType) (string,
 }
 
 // TokenToCache saves the token to the cache.
-func TokenToCache(app string, userID uint, token string, exp time.Time, tokenType enums.TokenType) error {
-	key := cacheKey(app, userID, tokenType)
+func TokenToCache(app, deviceID string, userID uint, token string, exp time.Time, tokenType enums.TokenType) error {
+	key := cacheKey(app, deviceID, userID, tokenType)
 
 	if result := cache.Valkey.Do(context.Background(), cache.Valkey.B().Set().Key(key).Value(token).Exat(exp).Build()); result.Error() != nil {
 		return result.Error()
@@ -216,9 +219,59 @@ func TokenToCache(app string, userID uint, token string, exp time.Time, tokenTyp
 	}
 }
 
+// TokenDeleteAllFromCache deletes all tokens from the cache for a given app, userID, and tokenType.
+func TokenDeleteAllFromCache(app string, userID uint, tokenType enums.TokenType) error {
+	// Construct the pattern to match keys in the cache.
+	var pattern string
+	switch tokenType {
+	case enums.Access:
+		pattern = fmt.Sprintf("%s:%d:*:AccessToken", app, userID)
+	case enums.PasswordReset:
+		pattern = fmt.Sprintf("%s:%d:*:PasswordResetToken", app, userID)
+	case enums.EmailVerification:
+		pattern = fmt.Sprintf("%s:%d:*:EmailVerificationToken", app, userID)
+	default:
+		return errors.New("unsupported token type")
+	}
+
+	ctx := context.Background()
+	cursor := uint64(0) // Start with cursor 0 for SCAN
+
+	for {
+		// Perform the SCAN command with the current cursor and pattern.
+		result := cache.Valkey.Do(ctx, cache.Valkey.B().Scan().Cursor(cursor).Match(pattern).Build())
+		if result.Error() != nil {
+			return result.Error()
+		}
+
+		// Parse the result to get the next cursor and keys.
+		scanResult, err := result.AsScanEntry()
+		if err != nil {
+			return err
+		}
+
+		// Delete each key returned by the SCAN command.
+		for _, key := range scanResult.Elements {
+			if delResult := cache.Valkey.Do(ctx, cache.Valkey.B().Del().Key(key).Build()); delResult.Error() != nil {
+				return delResult.Error()
+			}
+		}
+
+		// If the cursor is 0, the iteration is complete.
+		if scanResult.Cursor == 0 {
+			break
+		}
+
+		// Update the cursor for the next iteration.
+		cursor = scanResult.Cursor
+	}
+
+	return nil
+}
+
 // TokenDeleteFromCache deletes the token from the cache.
-func TokenDeleteFromCache(app string, userID uint, tokenType enums.TokenType) error {
-	key := cacheKey(app, userID, tokenType)
+func TokenDeleteFromCache(app, deviceID string, userID uint, tokenType enums.TokenType) error {
+	key := cacheKey(app, deviceID, userID, tokenType)
 
 	if result := cache.Valkey.Do(context.Background(), cache.Valkey.B().Del().Key(key).Build()); result.Error() != nil {
 		return result.Error()
@@ -228,8 +281,8 @@ func TokenDeleteFromCache(app string, userID uint, tokenType enums.TokenType) er
 }
 
 // TokenExistsInCache checks if the token exists in the cache.
-func TokenExistsInCache(app string, userID uint, tokenType enums.TokenType) (bool, error) {
-	key := cacheKey(app, userID, tokenType)
+func TokenExistsInCache(app, deviceID string, userID uint, tokenType enums.TokenType) (bool, error) {
+	key := cacheKey(app, deviceID, userID, tokenType)
 
 	if result := cache.Valkey.Do(context.Background(), cache.Valkey.B().Exists().Key(key).Build()); result.Error() != nil {
 		return false, result.Error()
@@ -243,32 +296,32 @@ func TokenExistsInCache(app string, userID uint, tokenType enums.TokenType) (boo
 }
 
 // cacheKey returns the key for the token cache.
-func cacheKey(app string, userID uint, tokenType enums.TokenType) string {
+func cacheKey(app, deviceID string, userID uint, tokenType enums.TokenType) string {
 	var key string
 
 	switch tokenType {
 	case enums.Access:
-		key = tokenCacheKey(app, userID)
+		key = tokenCacheKey(app, deviceID, userID)
 	case enums.PasswordReset:
-		key = tokenPasswordResetCacheKey(app, userID)
+		key = tokenPasswordResetCacheKey(app, deviceID, userID)
 	case enums.EmailVerification:
-		key = tokenEmailVerificationCacheKey(app, userID)
+		key = tokenEmailVerificationCacheKey(app, deviceID, userID)
 	}
 
 	return key
 }
 
 // tokenCacheKey returns the key for the token cache.
-func tokenCacheKey(app string, userID uint) string {
-	return fmt.Sprintf("%s:%d:AccessToken", app, userID)
+func tokenCacheKey(app, deviceID string, userID uint) string {
+	return fmt.Sprintf("%s:%d:%s:AccessToken", app, userID, deviceID)
 }
 
 // tokenPasswordResetCacheKey returns the key for password reset token cache.
-func tokenPasswordResetCacheKey(app string, userID uint) string {
-	return fmt.Sprintf("%s:%d:PasswordResetToken", app, userID)
+func tokenPasswordResetCacheKey(app, deviceID string, userID uint) string {
+	return fmt.Sprintf("%s:%d:%s:PasswordResetToken", app, userID, deviceID)
 }
 
 // tokenEmailVerificationCacheKey returns the key for email verification token cache.
-func tokenEmailVerificationCacheKey(app string, userID uint) string {
-	return fmt.Sprintf("%s:%d:EmailVerificationToken", app, userID)
+func tokenEmailVerificationCacheKey(app, deviceID string, userID uint) string {
+	return fmt.Sprintf("%s:%d:%s:EmailVerificationToken", app, userID, deviceID)
 }

@@ -64,7 +64,7 @@ func EmailProtected() func(*fiber.Ctx) error {
 		}
 
 		// Check if token exists in the cache.
-		if exists, err := services.TokenExistsInCache(emailClaims.App, uint(emailClaims.Id), enums.EmailVerification); err != nil {
+		if exists, err := services.TokenExistsInCache(emailClaims.App, emailClaims.DeviceID, uint(emailClaims.Id), enums.EmailVerification); err != nil {
 			return errorsutil.Response(
 				c,
 				fiber.StatusInternalServerError,
@@ -81,7 +81,7 @@ func EmailProtected() func(*fiber.Ctx) error {
 		}
 
 		// Check if token is equal to the one in the cache.
-		if token, err := services.TokenFromCache(emailClaims.App, uint(emailClaims.Id), enums.EmailVerification); err != nil {
+		if token, err := services.TokenFromCache(emailClaims.App, emailClaims.DeviceID, uint(emailClaims.Id), enums.EmailVerification); err != nil {
 			return errorsutil.Response(
 				c,
 				fiber.StatusInternalServerError,

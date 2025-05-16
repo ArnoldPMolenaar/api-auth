@@ -64,7 +64,7 @@ func PasswordProtected() func(*fiber.Ctx) error {
 		}
 
 		// Check if token exists in the cache.
-		if exists, err := services.TokenExistsInCache(resetClaims.App, uint(resetClaims.Id), enums.PasswordReset); err != nil {
+		if exists, err := services.TokenExistsInCache(resetClaims.App, resetClaims.DeviceID, uint(resetClaims.Id), enums.PasswordReset); err != nil {
 			return errorsutil.Response(
 				c,
 				fiber.StatusInternalServerError,
@@ -81,7 +81,7 @@ func PasswordProtected() func(*fiber.Ctx) error {
 		}
 
 		// Check if token is equal to the one in the cache.
-		if token, err := services.TokenFromCache(resetClaims.App, uint(resetClaims.Id), enums.PasswordReset); err != nil {
+		if token, err := services.TokenFromCache(resetClaims.App, resetClaims.DeviceID, uint(resetClaims.Id), enums.PasswordReset); err != nil {
 			return errorsutil.Response(
 				c,
 				fiber.StatusInternalServerError,

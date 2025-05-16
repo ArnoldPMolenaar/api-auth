@@ -1,5 +1,5 @@
 package requests
 
-type SignOut struct {
+type EmailVerification struct {
 	DeviceID string `json:"deviceId" validate:"required"`
 }

@@ -349,7 +349,7 @@ func UpdateUserPasswordReset(c *fiber.Ctx) error {
 	}
 
 	// Delete the reset token from the cache.
-	if err := services.TokenDeleteFromCache(requestPassword.App, uint(passwordClaims.Id), passwordClaims.Type); err != nil {
+	if err := services.TokenDeleteAllFromCache(requestPassword.App, uint(passwordClaims.Id), passwordClaims.Type); err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.CacheError, err.Error())
 	}
 
@@ -383,7 +383,7 @@ func UpdateUserEmailVerification(c *fiber.Ctx) error {
 	}
 
 	// Delete the verification token from the cache.
-	if err := services.TokenDeleteFromCache(emailClaims.App, user.ID, enums.EmailVerification); err != nil {
+	if err := services.TokenDeleteAllFromCache(emailClaims.App, user.ID, enums.EmailVerification); err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.CacheError, err.Error())
 	}
 
