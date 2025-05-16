@@ -53,9 +53,10 @@ func (u *UsernamePasswordSignIn) SetUsernamePasswordSignIn(
 
 	for i := range user.AppRoles {
 		var roleName = util.PascalCaseToCamelcase(user.AppRoles[i].RoleName)
-		u.Roles[roleName] = []string{}
-		for j := range user.AppRoles[i].Role.Permissions {
-			u.Roles[roleName] = append(u.Roles[roleName], user.AppRoles[i].Role.Permissions[j].Name)
+		if _, ok := u.Roles[roleName]; !ok {
+			u.Roles[roleName] = []string{}
 		}
+
+		u.Roles[roleName] = append(u.Roles[roleName], user.AppRoles[i].PermissionName)
 	}
 }

@@ -16,5 +16,6 @@ const (
 	TokenExtraction                        = "tokenExtraction"
 	InvalidPassword                        = "invalidPassword"
 	NoSelfDelete                           = "noSelfDelete"
+	PermissionsEmpty                       = "permissionsEmpty"
 	// Add more error codes as needed.
 )

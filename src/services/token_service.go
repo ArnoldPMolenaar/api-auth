@@ -157,10 +157,11 @@ func TokenCreateAccessClaim(user *models.User, app string) claims.AccessClaims {
 
 	for i := range user.AppRoles {
 		var roleName = utils.PascalCaseToCamelcase(user.AppRoles[i].RoleName)
-		claim.Roles[roleName] = []string{}
-		for j := range user.AppRoles[i].Role.Permissions {
-			claim.Roles[roleName] = append(claim.Roles[roleName], user.AppRoles[i].Role.Permissions[j].Name)
+		if _, ok := claim.Roles[roleName]; !ok {
+			claim.Roles[roleName] = []string{}
 		}
+
+		claim.Roles[roleName] = append(claim.Roles[roleName], user.AppRoles[i].PermissionName)
 	}
 
 	return claim

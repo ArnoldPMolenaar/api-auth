@@ -17,7 +17,7 @@ func Migrate(db *gorm.DB) error {
 		&models.UserAppActivity{},
 		&models.UserAppRecipe{},
 		&models.UserAppRefreshToken{},
-		&models.UserAppRole{})
+		&models.UserAppRolePermission{})
 	if err != nil {
 		return err
 	}
@@ -31,7 +31,7 @@ func Migrate(db *gorm.DB) error {
 	}
 
 	// Seed Permission
-	permissions := []string{"Create", "Update", "Delete"}
+	permissions := []string{"Read", "Create", "Update", "Delete"}
 	for _, permission := range permissions {
 		if err := db.FirstOrCreate(&models.Permission{}, models.Permission{Name: permission}).Error; err != nil {
 			return err
@@ -43,15 +43,6 @@ func Migrate(db *gorm.DB) error {
 	for _, role := range roles {
 		r := models.Role{Name: role}
 		if err := db.FirstOrCreate(&models.Role{}, r).Error; err != nil {
-			return err
-		}
-
-		var allPermissions []models.Permission
-		if err := db.Find(&allPermissions).Error; err != nil {
-			return err
-		}
-
-		if err := db.Model(&r).Association("Permissions").Replace(allPermissions); err != nil {
 			return err
 		}
 	}

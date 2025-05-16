@@ -192,6 +192,13 @@ func UpdateUser(c *fiber.Ctx) error {
 		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.Validator, util.ValidatorErrors(err))
 	}
 
+	// Check if roles are valid.
+	for i := range requestUser.Roles {
+		if len(requestUser.Roles[i].Permissions) == 0 {
+			return errorutil.Response(c, fiber.StatusBadRequest, errors.PermissionsEmpty, "Empty permissions in role is not allowed.")
+		}
+	}
+
 	// Get the user.
 	user, err := services.GetUserByID(userID)
 	if err != nil {
@@ -217,7 +224,7 @@ func UpdateUser(c *fiber.Ctx) error {
 		}
 	}
 
-	if requestUser.PhoneNumber != nil && *requestUser.PhoneNumber != *user.PhoneNumber {
+	if requestUser.PhoneNumber != nil && (user.PhoneNumber == nil || *requestUser.PhoneNumber != *user.PhoneNumber) {
 		if available, err := services.IsPhoneNumberAvailable(requestUser.PhoneNumber); err != nil {
 			return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 		} else if !available {

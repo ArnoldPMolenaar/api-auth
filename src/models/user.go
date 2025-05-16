@@ -18,6 +18,6 @@ type User struct {
 	// Relationships.
 	AppRecipes       []UserAppRecipe
 	AppRefreshTokens []UserAppRefreshToken
-	AppRoles         []UserAppRole
+	AppRoles         []UserAppRolePermission
 	AppActivity      []UserAppActivity
 }

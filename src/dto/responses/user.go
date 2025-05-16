@@ -53,10 +53,22 @@ func (u *User) SetUser(user *models.User) {
 
 	// Set user roles.
 	for i := range user.AppRoles {
-		u.Roles = append(u.Roles, AppRole{
-			App:  user.AppRoles[i].AppName,
-			Role: user.AppRoles[i].RoleName,
-		})
+		var roleFound bool
+		for j := range u.Roles {
+			if u.Roles[j].App == user.AppRoles[i].AppName && u.Roles[j].Role == user.AppRoles[i].RoleName {
+				u.Roles[j].Permissions = append(u.Roles[j].Permissions, user.AppRoles[i].PermissionName)
+				roleFound = true
+				break
+			}
+		}
+
+		if !roleFound {
+			u.Roles = append(u.Roles, AppRole{
+				App:         user.AppRoles[i].AppName,
+				Role:        user.AppRoles[i].RoleName,
+				Permissions: []string{user.AppRoles[i].PermissionName},
+			})
+		}
 	}
 
 	// Set user recipes.

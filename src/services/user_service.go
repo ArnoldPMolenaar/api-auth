@@ -153,10 +153,15 @@ func SignUp(signUp *requests.SignUp) (responses.SignUp, error) {
 
 	// Bind the user roles.
 	for _, role := range signUp.Roles {
-		user.AppRoles = append(user.AppRoles, models.UserAppRole{
+		userAppRolePermission := &models.UserAppRolePermission{
 			AppName:  role.App,
 			RoleName: role.Role,
-		})
+		}
+
+		for i := range role.Permissions {
+			userAppRolePermission.PermissionName = role.Permissions[i]
+			user.AppRoles = append(user.AppRoles, *userAppRolePermission)
+		}
 	}
 
 	// Create the user.
@@ -194,7 +199,6 @@ func GetUserByUsername(username string) (models.User, error) {
 	var user models.User
 
 	if result := database.Pg.Preload("AppRoles").
-		Preload("AppRoles.Role.Permissions").
 		Find(&user, "username = ?", username); result.Error != nil {
 		return user, result.Error
 	}
@@ -218,7 +222,6 @@ func GetUserByID(userID uint, unscoped ...bool) (models.User, error) {
 	var user models.User
 
 	query := database.Pg.Preload("AppRoles").
-		Preload("AppRoles.Role.Permissions").
 		Preload("AppRecipes").
 		Preload("AppActivity")
 
@@ -284,13 +287,18 @@ func UpdateUser(user *models.User, requestUser *requests.UpdateUser) (*models.Us
 	user.UpdatedAt = time.Now().UTC()
 
 	// Create a map of roles and recipes to check for duplicates.
-	rolesMap := make(map[string]map[string]bool)
+	rolesMap := make(map[string]map[string]map[string]bool)
 	recipesMap := make(map[string]map[string]bool)
 	for i := range requestUser.Roles {
 		if _, ok := rolesMap[requestUser.Roles[i].App]; !ok {
-			rolesMap[requestUser.Roles[i].App] = make(map[string]bool)
+			rolesMap[requestUser.Roles[i].App] = make(map[string]map[string]bool)
 		}
-		rolesMap[requestUser.Roles[i].App][requestUser.Roles[i].Role] = true
+		if _, ok := rolesMap[requestUser.Roles[i].App][requestUser.Roles[i].Role]; !ok {
+			rolesMap[requestUser.Roles[i].App][requestUser.Roles[i].Role] = make(map[string]bool)
+		}
+		for j := range requestUser.Roles[i].Permissions {
+			rolesMap[requestUser.Roles[i].App][requestUser.Roles[i].Role][requestUser.Roles[i].Permissions[j]] = true
+		}
 	}
 	for i := range requestUser.Recipes {
 		if _, ok := recipesMap[requestUser.Recipes[i].App]; !ok {
@@ -300,14 +308,15 @@ func UpdateUser(user *models.User, requestUser *requests.UpdateUser) (*models.Us
 	}
 
 	err := database.Pg.Transaction(func(tx *gorm.DB) error {
-		// Update the user roles.
+		// Delete the user roles.
 		for i := range user.AppRoles {
-			if _, ok := rolesMap[user.AppRoles[i].AppName][user.AppRoles[i].RoleName]; !ok {
+			if _, ok := rolesMap[user.AppRoles[i].AppName][user.AppRoles[i].RoleName][user.AppRoles[i].PermissionName]; !ok {
 				if result := database.Pg.Delete(&user.AppRoles[i]); result.Error != nil {
 					return result.Error
 				}
 			}
 		}
+		// Delete the user recipes.
 		for i := range user.AppRecipes {
 			if _, ok := recipesMap[user.AppRecipes[i].AppName][user.AppRecipes[i].RecipeName]; !ok {
 				if result := database.Pg.Delete(&user.AppRecipes[i]); result.Error != nil {
@@ -316,17 +325,21 @@ func UpdateUser(user *models.User, requestUser *requests.UpdateUser) (*models.Us
 			}
 		}
 
-		// Update the user roles.
-		user.AppRoles = []models.UserAppRole{}
+		// Insert the user roles.
+		user.AppRoles = []models.UserAppRolePermission{}
 		for i := range requestUser.Roles {
-			user.AppRoles = append(user.AppRoles, models.UserAppRole{
+			userAppRolePermission := models.UserAppRolePermission{
 				UserID:   user.ID,
 				AppName:  requestUser.Roles[i].App,
 				RoleName: requestUser.Roles[i].Role,
-			})
+			}
+			for j := range requestUser.Roles[i].Permissions {
+				userAppRolePermission.PermissionName = requestUser.Roles[i].Permissions[j]
+				user.AppRoles = append(user.AppRoles, userAppRolePermission)
+			}
 		}
 
-		// Update the user recipes.
+		// Insert the user recipes.
 		user.AppRecipes = []models.UserAppRecipe{}
 		for i := range requestUser.Recipes {
 			user.AppRecipes = append(user.AppRecipes, models.UserAppRecipe{

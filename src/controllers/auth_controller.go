@@ -51,6 +51,13 @@ func SignUp(c *fiber.Ctx) error {
 		}
 	}
 
+	// Check if roles are valid.
+	for i := range signUp.Roles {
+		if len(signUp.Roles[i].Permissions) == 0 {
+			return errorutil.Response(c, fiber.StatusBadRequest, errors.PermissionsEmpty, "Empty permissions in role is not allowed.")
+		}
+	}
+
 	// Create a new user.
 	if user, err := services.SignUp(signUp); err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
