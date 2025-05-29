@@ -55,12 +55,35 @@ func GetUser(c *fiber.Ctx) error {
 		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.InvalidParam, "Invalid User ID.")
 	}
 
+	// Get the apps from the query string.
+	apps := &requests.Apps{}
+	if err := c.QueryParser(apps); err != nil {
+		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.BodyParse, err.Error())
+	}
+
 	// Get the user.
 	user, err := services.GetUserByID(userID)
 	if err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 	} else if user.ID == 0 {
 		return errorutil.Response(c, fiber.StatusNotFound, errorutil.NotFound, "User not found.")
+	}
+
+	// If apps are provided, check if the user has any of the apps.
+	if apps.Names != nil {
+		var hasApp bool
+	outer:
+		for _, appName := range apps.Names {
+			for _, app := range user.AppRecipes {
+				if app.AppName == appName {
+					hasApp = true
+					break outer
+				}
+			}
+		}
+		if !hasApp {
+			return errorutil.Response(c, fiber.StatusNotFound, errorutil.NotFound, "User does not have the specified app.")
+		}
 	}
 
 	// Return the user.
