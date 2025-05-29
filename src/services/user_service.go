@@ -9,6 +9,7 @@ import (
 	"database/sql"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+	"slices"
 	"time"
 )
 
@@ -273,7 +274,7 @@ func SetLastLoginAt(app string, userID uint, lastLoginAt time.Time) error {
 }
 
 // UpdateUser method to update a user.
-func UpdateUser(user *models.User, requestUser *requests.UpdateUser) (*models.User, error) {
+func UpdateUser(user *models.User, requestUser *requests.UpdateUser, apps []string) (*models.User, error) {
 	if requestUser.Email != user.Email {
 		user.EmailVerifiedAt = sql.NullTime{}
 	}
@@ -309,7 +310,12 @@ func UpdateUser(user *models.User, requestUser *requests.UpdateUser) (*models.Us
 
 	err := database.Pg.Transaction(func(tx *gorm.DB) error {
 		// Delete the user roles.
+		protectedUserAppRoles := make([]models.UserAppRolePermission, 0, len(user.AppRoles))
 		for i := range user.AppRoles {
+			if len(apps) > 0 && !slices.Contains(apps, user.AppRoles[i].AppName) {
+				protectedUserAppRoles = append(protectedUserAppRoles, user.AppRoles[i])
+				continue
+			}
 			if _, ok := rolesMap[user.AppRoles[i].AppName][user.AppRoles[i].RoleName][user.AppRoles[i].PermissionName]; !ok {
 				if result := database.Pg.Delete(&user.AppRoles[i]); result.Error != nil {
 					return result.Error
@@ -317,7 +323,12 @@ func UpdateUser(user *models.User, requestUser *requests.UpdateUser) (*models.Us
 			}
 		}
 		// Delete the user recipes.
+		protectedUserAppRecipes := make([]models.UserAppRecipe, 0, len(user.AppRecipes))
 		for i := range user.AppRecipes {
+			if len(apps) > 0 && !slices.Contains(apps, user.AppRecipes[i].AppName) {
+				protectedUserAppRecipes = append(protectedUserAppRecipes, user.AppRecipes[i])
+				continue
+			}
 			if _, ok := recipesMap[user.AppRecipes[i].AppName][user.AppRecipes[i].RecipeName]; !ok {
 				if result := database.Pg.Delete(&user.AppRecipes[i]); result.Error != nil {
 					return result.Error
@@ -326,8 +337,11 @@ func UpdateUser(user *models.User, requestUser *requests.UpdateUser) (*models.Us
 		}
 
 		// Insert the user roles.
-		user.AppRoles = []models.UserAppRolePermission{}
+		user.AppRoles = protectedUserAppRoles
 		for i := range requestUser.Roles {
+			if len(apps) > 0 && !slices.Contains(apps, requestUser.Roles[i].App) {
+				continue
+			}
 			userAppRolePermission := models.UserAppRolePermission{
 				UserID:   user.ID,
 				AppName:  requestUser.Roles[i].App,
@@ -340,8 +354,11 @@ func UpdateUser(user *models.User, requestUser *requests.UpdateUser) (*models.Us
 		}
 
 		// Insert the user recipes.
-		user.AppRecipes = []models.UserAppRecipe{}
+		user.AppRecipes = protectedUserAppRecipes
 		for i := range requestUser.Recipes {
+			if len(apps) > 0 && !slices.Contains(apps, requestUser.Recipes[i].App) {
+				continue
+			}
 			user.AppRecipes = append(user.AppRecipes, models.UserAppRecipe{
 				UserID:     user.ID,
 				AppName:    requestUser.Recipes[i].App,
