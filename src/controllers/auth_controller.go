@@ -58,6 +58,29 @@ func SignUp(c *fiber.Ctx) error {
 		}
 	}
 
+	// Get the apps from the query string.
+	apps := &requests.Apps{}
+	if err := c.QueryParser(apps); err != nil {
+		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.BodyParse, err.Error())
+	}
+
+	// If apps are provided, check if the user has any of the apps.
+	if apps.Names != nil {
+		var hasApp bool
+	outer:
+		for _, appName := range apps.Names {
+			for _, recipe := range signUp.Recipes {
+				if recipe.App == appName {
+					hasApp = true
+					break outer
+				}
+			}
+		}
+		if !hasApp {
+			return errorutil.Response(c, fiber.StatusUnauthorized, errorutil.Unauthorized, "User does not have the specified app.")
+		}
+	}
+
 	// Create a new user.
 	if user, err := services.SignUp(signUp); err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
