@@ -84,6 +84,11 @@ func GetUsers(c *fiber.Ctx) error {
 		"deleted_at":   true,
 	}
 
+	apps := &requests.Apps{}
+	if err := c.QueryParser(apps); err != nil {
+		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.BodyParse, err.Error())
+	}
+
 	queryFunc := pagination.Query(values, allowedColumns)
 	sortFunc := pagination.Sort(values, allowedColumns)
 	page := c.QueryInt("page", 1)
@@ -95,14 +100,21 @@ func GetUsers(c *fiber.Ctx) error {
 		limit = 10
 	}
 	offset := pagination.Offset(page, limit)
+	db := database.Pg.Unscoped().Scopes(queryFunc, sortFunc).Limit(limit).Offset(offset)
 
-	db := database.Pg.Unscoped().Scopes(queryFunc, sortFunc).Limit(limit).Offset(offset).Find(&users)
-	if db.Error != nil {
+	if apps.Names != nil {
+		db = db.Joins("JOIN user_app_recipes ON user_id = id").Where("app_name IN ?", apps.Names)
+	}
+	if db.Find(&users).Error != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, db.Error.Error())
 	}
 
 	total := int64(0)
-	database.Pg.Unscoped().Scopes(queryFunc).Model(&models.User{}).Count(&total)
+	dbCount := database.Pg.Unscoped().Scopes(queryFunc).Model(&models.User{})
+	if apps.Names != nil {
+		dbCount = dbCount.Joins("JOIN user_app_recipes ON user_id = id").Where("app_name IN ?", apps.Names)
+	}
+	dbCount.Count(&total)
 	pageCount := pagination.Count(int(total), limit)
 
 	paginatedUsers := make([]responses.PaginatedUser, 0)
