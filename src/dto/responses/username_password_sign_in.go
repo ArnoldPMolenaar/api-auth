@@ -8,17 +8,17 @@ import (
 )
 
 type UsernamePasswordSignIn struct {
-	ID              uint                `json:"id"`
-	Username        string              `json:"username"`
-	Email           string              `json:"email"`
-	PhoneNumber     *string             `json:"phoneNumber"`
-	IsTempPassword  bool                `json:"isTempPassword"`
-	EmailVerifiedAt *time.Time          `json:"emailVerifiedAt"`
-	PhoneVerifiedAt *time.Time          `json:"phoneVerifiedAt"`
-	CreatedAt       time.Time           `json:"createdAt"`
-	UpdatedAt       time.Time           `json:"updatedAt"`
-	AccessToken     Token               `json:"accessToken"`
-	Roles           map[string][]string `json:"roles"`
+	ID              uint                           `json:"id"`
+	Username        string                         `json:"username"`
+	Email           string                         `json:"email"`
+	PhoneNumber     *string                        `json:"phoneNumber"`
+	IsTempPassword  bool                           `json:"isTempPassword"`
+	EmailVerifiedAt *time.Time                     `json:"emailVerifiedAt"`
+	PhoneVerifiedAt *time.Time                     `json:"phoneVerifiedAt"`
+	CreatedAt       time.Time                      `json:"createdAt"`
+	UpdatedAt       time.Time                      `json:"updatedAt"`
+	AccessToken     Token                          `json:"accessToken"`
+	Apps            map[string]map[string][]string `json:"apps"`
 }
 
 // SetUsernamePasswordSignIn method to set username password sign-in response from user model.
@@ -49,14 +49,18 @@ func (u *UsernamePasswordSignIn) SetUsernamePasswordSignIn(
 		Token:     accessToken,
 		ExpiresAt: accessTokenExpiresAt.Time,
 	}
-	u.Roles = map[string][]string{}
+	u.Apps = map[string]map[string][]string{}
 
 	for i := range user.AppRoles {
+		var appName = util.PascalCaseToCamelcase(user.AppRoles[i].AppName)
 		var roleName = util.PascalCaseToCamelcase(user.AppRoles[i].RoleName)
-		if _, ok := u.Roles[roleName]; !ok {
-			u.Roles[roleName] = []string{}
+		if _, ok := u.Apps[appName]; !ok {
+			u.Apps[appName] = map[string][]string{}
+		}
+		if _, ok := u.Apps[appName][roleName]; !ok {
+			u.Apps[appName][roleName] = []string{}
 		}
 
-		u.Roles[roleName] = append(u.Roles[roleName], user.AppRoles[i].PermissionName)
+		u.Apps[appName][roleName] = append(u.Apps[appName][roleName], user.AppRoles[i].PermissionName)
 	}
 }

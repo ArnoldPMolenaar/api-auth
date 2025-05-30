@@ -152,17 +152,21 @@ func TokenCreateAccessClaim(user *models.User, app, deviceID string) claims.Acce
 		IsEmailVerified: user.EmailVerifiedAt.Valid,
 		IsPhoneVerified: user.PhoneVerifiedAt.Valid,
 		IsTempPassword:  user.IsTempPassword,
-		Roles:           make(map[string][]string),
+		Apps:            make(map[string]map[string][]string),
 		Type:            enums.Access,
 	}
 
 	for i := range user.AppRoles {
+		var appName = utils.PascalCaseToCamelcase(user.AppRoles[i].AppName)
 		var roleName = utils.PascalCaseToCamelcase(user.AppRoles[i].RoleName)
-		if _, ok := claim.Roles[roleName]; !ok {
-			claim.Roles[roleName] = []string{}
+		if _, ok := claim.Apps[appName]; !ok {
+			claim.Apps[appName] = map[string][]string{}
+		}
+		if _, ok := claim.Apps[appName][roleName]; !ok {
+			claim.Apps[appName][roleName] = []string{}
 		}
 
-		claim.Roles[roleName] = append(claim.Roles[roleName], user.AppRoles[i].PermissionName)
+		claim.Apps[appName][roleName] = append(claim.Apps[appName][roleName], user.AppRoles[i].PermissionName)
 	}
 
 	return claim

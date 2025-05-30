@@ -7,6 +7,7 @@ import (
 	"api-auth/main/src/services"
 	"errors"
 	errorsutil "github.com/ArnoldPMolenaar/api-utils/errors"
+	util "github.com/ArnoldPMolenaar/api-utils/utils"
 	"github.com/gofiber/fiber/v2"
 	"strings"
 	"time"
@@ -101,7 +102,8 @@ func JWTProtected() func(*fiber.Ctx) error {
 		}
 
 		// Check for blocked permission
-		if accessClaims.Roles["blocked"] != nil {
+		appName := util.PascalCaseToCamelcase(accessClaims.App)
+		if accessClaims.Apps[appName]["blocked"] != nil {
 			return errorsutil.Response(
 				c,
 				fiber.StatusForbidden,
