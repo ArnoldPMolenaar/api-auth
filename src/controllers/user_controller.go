@@ -129,7 +129,7 @@ func GetUsers(c *fiber.Ctx) error {
 		limit = 10
 	}
 	offset := pagination.Offset(page, limit)
-	dbResult := database.Pg.Debug().Unscoped().Scopes(queryFunc, sortFunc).
+	dbResult := database.Pg.Unscoped().Scopes(queryFunc, sortFunc).
 		Joins("JOIN user_app_recipes ON user_id = id").
 		Limit(limit).
 		Offset(offset)
@@ -175,6 +175,51 @@ func GetUsers(c *fiber.Ctx) error {
 	paginationModel := pagination.CreatePaginationModel(limit, page, pageCount, int(total), paginatedUsers)
 
 	return c.Status(fiber.StatusOK).JSON(paginationModel)
+}
+
+// GetUsersLookup method to get users lookup by apps.
+func GetUsersLookup(c *fiber.Ctx) error {
+	apps := &requests.Apps{}
+	if err := c.QueryParser(apps); err != nil {
+		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.BodyParse, err.Error())
+	}
+
+	// Get apps from claims.
+	claim := c.Locals("claims")
+	if claim == nil {
+		return errorutil.Response(c, fiber.StatusUnauthorized, errorutil.Unauthorized, "Claims not found.")
+	}
+	accessClaims, ok := claim.(*claims.AccessClaims)
+	if !ok {
+		return errorutil.Response(c, fiber.StatusUnauthorized, errorutil.Unauthorized, "Invalid claims type.")
+	}
+	appNames := slices.Collect(maps.Keys(accessClaims.Apps))
+
+	if len(apps.Names) == 0 {
+		apps.Names = make([]string, len(accessClaims.Apps))
+		for index, name := range appNames {
+			apps.Names[index] = utils.CamelcaseToPascalCase(name)
+		}
+	} else {
+		for _, appName := range apps.Names {
+			if !slices.Contains(appNames, util.PascalCaseToCamelcase(appName)) {
+				return errorutil.Response(c, fiber.StatusUnauthorized, errorutil.Unauthorized, "User does not have the specified app.")
+			}
+		}
+	}
+
+	usersLookup, err := services.GetUsersLookup(apps.Names)
+	if err != nil {
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
+	}
+
+	response := make([]responses.UserLookup, len(usersLookup))
+	for i := range usersLookup {
+		response[i] = responses.UserLookup{}
+		response[i].ToUserLookup(&usersLookup[i])
+	}
+
+	return c.JSON(response)
 }
 
 // IsUsernameAvailable method to check if username is available.

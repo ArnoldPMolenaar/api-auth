@@ -224,6 +224,22 @@ func GetUserByID(userID uint, unscoped ...bool) (models.User, error) {
 	return user, nil
 }
 
+// GetUsersLookup method to get users by app names.
+func GetUsersLookup(appNames []string) ([]models.User, error) {
+	var users []models.User
+
+	query := database.Pg.Model(&models.User{}).
+		Joins("JOIN user_app_recipes ON user_id = id").
+		Select("users.id, users.username, users.email").
+		Where("app_name IN ?", appNames)
+
+	if result := query.Find(&users); result.Error != nil {
+		return nil, result.Error
+	}
+
+	return users, nil
+}
+
 // RotateRefreshToken method to rotate a refresh token.
 // It Inserts or Updates the refresh token and returns the new token.
 func RotateRefreshToken(app, deviceID string, userID uint) (*models.UserAppRefreshToken, error) {

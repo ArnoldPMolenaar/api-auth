@@ -23,6 +23,7 @@ func JwtRoutes(a *fiber.App) {
 	// Register routes for the user CRUD.
 	route.Get("/users", middleware.JWTProtected(), controllers.GetUsers)
 	route.Post("/users", middleware.JWTProtected(), controllers.CreateUser)
+	route.Get("/users/lookup", middleware.JWTProtected(), controllers.GetUsersLookup)
 	route.Get("/users/:id", middleware.JWTProtected(), controllers.GetUser)
 	route.Put("/users/:id", middleware.JWTProtected(), controllers.UpdateUser)
 	route.Delete("/users/:id", middleware.JWTProtected(), controllers.DeleteUser)
