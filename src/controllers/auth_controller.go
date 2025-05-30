@@ -364,6 +364,13 @@ func TokenPasswordReset(c *fiber.Ctx) error {
 		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.Validator, utils.ValidatorErrors(err))
 	}
 
+	// Check if app exists.
+	if available, err := services.IsAppAvailable(token.App); err != nil {
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
+	} else if !available {
+		return errorutil.Response(c, fiber.StatusBadRequest, errors.AppExists, "AppName does not exist.")
+	}
+
 	// Get the user.
 	user, err := services.GetUserByEmail(token.Email)
 	if err != nil {
