@@ -11,6 +11,7 @@ import (
 	errorutil "github.com/ArnoldPMolenaar/api-utils/errors"
 	"github.com/ArnoldPMolenaar/api-utils/utils"
 	"github.com/gofiber/fiber/v2"
+	"slices"
 	"time"
 )
 
@@ -64,16 +65,19 @@ func SignUp(c *fiber.Ctx) error {
 		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.BodyParse, err.Error())
 	}
 
-	// If apps are provided, check if the user has any of the apps.
+	// If apps are provided, check if the user has all the apps.
 	if apps.Names != nil {
-		var hasApp bool
-	outer:
-		for _, appName := range apps.Names {
-			for _, recipe := range signUp.Recipes {
-				if recipe.App == appName {
-					hasApp = true
-					break outer
-				}
+		hasApp := true
+		for i := range signUp.Recipes {
+			if !slices.Contains(apps.Names, signUp.Recipes[i].App) {
+				hasApp = false
+				break
+			}
+		}
+		for i := range signUp.Roles {
+			if !slices.Contains(apps.Names, signUp.Roles[i].App) {
+				hasApp = false
+				break
 			}
 		}
 		if !hasApp {
