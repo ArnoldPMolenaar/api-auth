@@ -16,6 +16,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"maps"
 	"slices"
+	"strings"
 )
 
 // GetUserRecipesByUsername method to get user recipes by username.
@@ -111,23 +112,10 @@ func GetUsers(c *fiber.Ctx) error {
 		"username":     true,
 		"email":        true,
 		"phone_number": true,
+		"app_name":     true,
 		"created_at":   true,
 		"updated_at":   true,
 		"deleted_at":   true,
-	}
-
-	// Get apps from claims.
-	claim := c.Locals("claims")
-	if claim == nil {
-		return errorutil.Response(c, fiber.StatusUnauthorized, errorutil.Unauthorized, "Claims not found.")
-	}
-	accessClaims, ok := claim.(*claims.AccessClaims)
-	if !ok {
-		return errorutil.Response(c, fiber.StatusUnauthorized, errorutil.Unauthorized, "Invalid claims type.")
-	}
-	appNames := make([]string, len(accessClaims.Apps))
-	for index, name := range slices.Collect(maps.Keys(accessClaims.Apps)) {
-		appNames[index] = utils.CamelcaseToPascalCase(name)
 	}
 
 	queryFunc := pagination.Query(values, allowedColumns)
@@ -141,24 +129,40 @@ func GetUsers(c *fiber.Ctx) error {
 		limit = 10
 	}
 	offset := pagination.Offset(page, limit)
-	db := database.Pg.Unscoped().Scopes(queryFunc, sortFunc).
+	dbResult := database.Pg.Debug().Unscoped().Scopes(queryFunc, sortFunc).
 		Joins("JOIN user_app_recipes ON user_id = id").
-		Where("app_name IN ?", appNames).
 		Limit(limit).
-		Offset(offset).
-		Find(&users)
-
-	if db.Error != nil {
-		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, db.Error.Error())
-	}
+		Offset(offset)
 
 	total := int64(0)
-	database.Pg.Unscoped().Scopes(queryFunc).
+	dbCount := database.Pg.Unscoped().Scopes(queryFunc).
 		Model(&models.User{}).
-		Joins("JOIN user_app_recipes ON user_id = id").
-		Where("app_name IN ?", appNames).
-		Count(&total)
+		Joins("JOIN user_app_recipes ON user_id = id")
 
+	// Get apps from claims.
+	if !strings.Contains(values.String(), "app_name") {
+		claim := c.Locals("claims")
+		if claim == nil {
+			return errorutil.Response(c, fiber.StatusUnauthorized, errorutil.Unauthorized, "Claims not found.")
+		}
+		accessClaims, ok := claim.(*claims.AccessClaims)
+		if !ok {
+			return errorutil.Response(c, fiber.StatusUnauthorized, errorutil.Unauthorized, "Invalid claims type.")
+		}
+		appNames := make([]string, len(accessClaims.Apps))
+		for index, name := range slices.Collect(maps.Keys(accessClaims.Apps)) {
+			appNames[index] = utils.CamelcaseToPascalCase(name)
+		}
+
+		dbResult = dbResult.Where("app_name IN ?", appNames)
+		dbCount = dbCount.Where("app_name IN ?", appNames)
+	}
+
+	if dbResult.Find(&users).Error != nil {
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, dbResult.Error.Error())
+	}
+
+	dbCount.Count(&total)
 	pageCount := pagination.Count(int(total), limit)
 
 	paginatedUsers := make([]responses.PaginatedUser, 0)
