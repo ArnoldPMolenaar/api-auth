@@ -9,10 +9,12 @@ import (
 	"api-auth/main/src/errors"
 	"api-auth/main/src/models"
 	"api-auth/main/src/services"
+	"api-auth/main/src/utils"
 	errorutil "github.com/ArnoldPMolenaar/api-utils/errors"
 	"github.com/ArnoldPMolenaar/api-utils/pagination"
 	util "github.com/ArnoldPMolenaar/api-utils/utils"
 	"github.com/gofiber/fiber/v2"
+	"maps"
 	"slices"
 )
 
@@ -56,10 +58,18 @@ func GetUser(c *fiber.Ctx) error {
 		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.InvalidParam, "Invalid User ID.")
 	}
 
-	// Get the apps from the query string.
-	apps := &requests.Apps{}
-	if err := c.QueryParser(apps); err != nil {
-		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.BodyParse, err.Error())
+	// Get apps from claims.
+	claim := c.Locals("claims")
+	if claim == nil {
+		return errorutil.Response(c, fiber.StatusUnauthorized, errorutil.Unauthorized, "Claims not found.")
+	}
+	accessClaims, ok := claim.(*claims.AccessClaims)
+	if !ok {
+		return errorutil.Response(c, fiber.StatusUnauthorized, errorutil.Unauthorized, "Invalid claims type.")
+	}
+	appNames := make([]string, len(accessClaims.Apps))
+	for index, name := range slices.Collect(maps.Keys(accessClaims.Apps)) {
+		appNames[index] = utils.CamelcaseToPascalCase(name)
 	}
 
 	// Get the user.
@@ -71,20 +81,18 @@ func GetUser(c *fiber.Ctx) error {
 	}
 
 	// If apps are provided, check if the user has any of the apps.
-	if apps.Names != nil {
-		var hasApp bool
-	outer:
-		for _, appName := range apps.Names {
-			for _, app := range user.AppRecipes {
-				if app.AppName == appName {
-					hasApp = true
-					break outer
-				}
+	var hasApp bool
+outer:
+	for _, appName := range appNames {
+		for _, app := range user.AppRecipes {
+			if app.AppName == appName {
+				hasApp = true
+				break outer
 			}
 		}
-		if !hasApp {
-			return errorutil.Response(c, fiber.StatusNotFound, errorutil.NotFound, "User does not have the specified app.")
-		}
+	}
+	if !hasApp {
+		return errorutil.Response(c, fiber.StatusNotFound, errorutil.NotFound, "User does not have the specified app.")
 	}
 
 	// Return the user.
@@ -108,9 +116,18 @@ func GetUsers(c *fiber.Ctx) error {
 		"deleted_at":   true,
 	}
 
-	apps := &requests.Apps{}
-	if err := c.QueryParser(apps); err != nil {
-		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.BodyParse, err.Error())
+	// Get apps from claims.
+	claim := c.Locals("claims")
+	if claim == nil {
+		return errorutil.Response(c, fiber.StatusUnauthorized, errorutil.Unauthorized, "Claims not found.")
+	}
+	accessClaims, ok := claim.(*claims.AccessClaims)
+	if !ok {
+		return errorutil.Response(c, fiber.StatusUnauthorized, errorutil.Unauthorized, "Invalid claims type.")
+	}
+	appNames := make([]string, len(accessClaims.Apps))
+	for index, name := range slices.Collect(maps.Keys(accessClaims.Apps)) {
+		appNames[index] = utils.CamelcaseToPascalCase(name)
 	}
 
 	queryFunc := pagination.Query(values, allowedColumns)
@@ -124,21 +141,24 @@ func GetUsers(c *fiber.Ctx) error {
 		limit = 10
 	}
 	offset := pagination.Offset(page, limit)
-	db := database.Pg.Unscoped().Scopes(queryFunc, sortFunc).Limit(limit).Offset(offset)
+	db := database.Pg.Unscoped().Scopes(queryFunc, sortFunc).
+		Joins("JOIN user_app_recipes ON user_id = id").
+		Where("app_name IN ?", appNames).
+		Limit(limit).
+		Offset(offset).
+		Find(&users)
 
-	if apps.Names != nil {
-		db = db.Joins("JOIN user_app_recipes ON user_id = id").Where("app_name IN ?", apps.Names)
-	}
-	if db.Find(&users).Error != nil {
+	if db.Error != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, db.Error.Error())
 	}
 
 	total := int64(0)
-	dbCount := database.Pg.Unscoped().Scopes(queryFunc).Model(&models.User{})
-	if apps.Names != nil {
-		dbCount = dbCount.Joins("JOIN user_app_recipes ON user_id = id").Where("app_name IN ?", apps.Names)
-	}
-	dbCount.Count(&total)
+	database.Pg.Unscoped().Scopes(queryFunc).
+		Model(&models.User{}).
+		Joins("JOIN user_app_recipes ON user_id = id").
+		Where("app_name IN ?", appNames).
+		Count(&total)
+
 	pageCount := pagination.Count(int(total), limit)
 
 	paginatedUsers := make([]responses.PaginatedUser, 0)
@@ -204,6 +224,90 @@ func IsPhoneNumberAvailable(c *fiber.Ctx) error {
 	}
 }
 
+// CreateUser method to create a new user.
+func CreateUser(c *fiber.Ctx) error {
+	// Create a new user auth struct.
+	createUser := &requests.CreateUser{}
+
+	// Check, if received JSON data is parsed.
+	if err := c.BodyParser(createUser); err != nil {
+		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.BodyParse, err.Error())
+	}
+
+	// Validate user fields.
+	validate := util.NewValidator()
+	if err := validate.Struct(createUser); err != nil {
+		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.Validator, util.ValidatorErrors(err))
+	}
+
+	// Check if user already exists.
+	if available, err := services.IsUsernameAvailable(createUser.Username); err != nil {
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
+	} else if !available {
+		return errorutil.Response(c, fiber.StatusBadRequest, errors.UsernameExists, "Username already exists.")
+	}
+
+	if available, err := services.IsEmailAvailable(createUser.Email); err != nil {
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
+	} else if !available {
+		return errorutil.Response(c, fiber.StatusBadRequest, errors.EmailExists, "Email already exists.")
+	}
+
+	if createUser.PhoneNumber != nil {
+		if available, err := services.IsPhoneNumberAvailable(createUser.PhoneNumber); err != nil {
+			return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
+		} else if !available {
+			return errorutil.Response(c, fiber.StatusBadRequest, errors.PhoneNumberExists, "Phone already exists.")
+		}
+	}
+
+	// Check if roles are valid.
+	for i := range createUser.Roles {
+		if len(createUser.Roles[i].Permissions) == 0 {
+			return errorutil.Response(c, fiber.StatusBadRequest, errors.PermissionsEmpty, "Empty permissions in role is not allowed.")
+		}
+	}
+
+	// Get apps from claims.
+	claim := c.Locals("claims")
+	if claim == nil {
+		return errorutil.Response(c, fiber.StatusUnauthorized, errorutil.Unauthorized, "Claims not found.")
+	}
+	accessClaims, ok := claim.(*claims.AccessClaims)
+	if !ok {
+		return errorutil.Response(c, fiber.StatusUnauthorized, errorutil.Unauthorized, "Invalid claims type.")
+	}
+	appNames := make([]string, len(accessClaims.Apps))
+	for index, name := range slices.Collect(maps.Keys(accessClaims.Apps)) {
+		appNames[index] = utils.CamelcaseToPascalCase(name)
+	}
+
+	// If apps are provided, check if the user has all the apps.
+	hasApp := true
+	for i := range createUser.Recipes {
+		if !slices.Contains(appNames, createUser.Recipes[i].App) {
+			hasApp = false
+			break
+		}
+	}
+	for i := range createUser.Roles {
+		if !slices.Contains(appNames, createUser.Roles[i].App) {
+			hasApp = false
+			break
+		}
+	}
+	if !hasApp {
+		return errorutil.Response(c, fiber.StatusUnauthorized, errorutil.Unauthorized, "User does not have the specified app.")
+	}
+
+	// Create a new user.
+	if user, err := services.CreateUser(createUser); err != nil {
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
+	} else {
+		return c.JSON(user)
+	}
+}
+
 // UpdateUser method to update user by ID.
 func UpdateUser(c *fiber.Ctx) error {
 	// Get the userID parameter from the URL.
@@ -216,10 +320,18 @@ func UpdateUser(c *fiber.Ctx) error {
 		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.InvalidParam, "Invalid User ID.")
 	}
 
-	// Get the apps from the query string.
-	apps := &requests.Apps{}
-	if err := c.QueryParser(apps); err != nil {
-		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.BodyParse, err.Error())
+	// Get apps from claims.
+	claim := c.Locals("claims")
+	if claim == nil {
+		return errorutil.Response(c, fiber.StatusUnauthorized, errorutil.Unauthorized, "Claims not found.")
+	}
+	accessClaims, ok := claim.(*claims.AccessClaims)
+	if !ok {
+		return errorutil.Response(c, fiber.StatusUnauthorized, errorutil.Unauthorized, "Invalid claims type.")
+	}
+	appNames := make([]string, len(accessClaims.Apps))
+	for index, name := range slices.Collect(maps.Keys(accessClaims.Apps)) {
+		appNames[index] = utils.CamelcaseToPascalCase(name)
 	}
 
 	// Get the request body.
@@ -250,20 +362,18 @@ func UpdateUser(c *fiber.Ctx) error {
 	}
 
 	// If apps are provided, check if the user has any of the apps.
-	if apps.Names != nil {
-		var hasApp bool
-	outer:
-		for _, appName := range apps.Names {
-			for _, app := range user.AppRecipes {
-				if app.AppName == appName {
-					hasApp = true
-					break outer
-				}
+	var hasApp bool
+outer:
+	for _, appName := range appNames {
+		for _, app := range user.AppRecipes {
+			if app.AppName == appName {
+				hasApp = true
+				break outer
 			}
 		}
-		if !hasApp {
-			return errorutil.Response(c, fiber.StatusNotFound, errorutil.NotFound, "User does not have the specified app.")
-		}
+	}
+	if !hasApp {
+		return errorutil.Response(c, fiber.StatusNotFound, errorutil.NotFound, "User does not have the specified app.")
 	}
 
 	// Check if user already exists.
@@ -297,7 +407,7 @@ func UpdateUser(c *fiber.Ctx) error {
 	}
 
 	// Update the user.
-	updatedUser, err := services.UpdateUser(&user, requestUser, apps.Names)
+	updatedUser, err := services.UpdateUser(&user, requestUser, appNames)
 	if err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 	}
@@ -309,6 +419,7 @@ func UpdateUser(c *fiber.Ctx) error {
 	return c.JSON(response)
 }
 
+// UpdateUserPassword method to update user password by ID.
 func UpdateUserPassword(c *fiber.Ctx) error {
 	// Get the userID parameter from the URL.
 	userIDParam := c.Params("id")
@@ -461,10 +572,18 @@ func RestoreUser(c *fiber.Ctx) error {
 		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.InvalidParam, "Invalid User ID.")
 	}
 
-	// Get the apps from the query string.
-	apps := &requests.Apps{}
-	if err := c.QueryParser(apps); err != nil {
-		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.BodyParse, err.Error())
+	// Get apps from claims.
+	claim := c.Locals("claims")
+	if claim == nil {
+		return errorutil.Response(c, fiber.StatusUnauthorized, errorutil.Unauthorized, "Claims not found.")
+	}
+	accessClaims, ok := claim.(*claims.AccessClaims)
+	if !ok {
+		return errorutil.Response(c, fiber.StatusUnauthorized, errorutil.Unauthorized, "Invalid claims type.")
+	}
+	appNames := make([]string, len(accessClaims.Apps))
+	for index, name := range slices.Collect(maps.Keys(accessClaims.Apps)) {
+		appNames[index] = utils.CamelcaseToPascalCase(name)
 	}
 
 	// Get the user.
@@ -476,23 +595,21 @@ func RestoreUser(c *fiber.Ctx) error {
 	}
 
 	// If apps are provided, check if the user has all the apps.
-	if apps.Names != nil {
-		hasApp := true
-		for i := range user.AppRecipes {
-			if !slices.Contains(apps.Names, user.AppRecipes[i].AppName) {
-				hasApp = false
-				break
-			}
+	hasApp := true
+	for i := range user.AppRecipes {
+		if !slices.Contains(appNames, user.AppRecipes[i].AppName) {
+			hasApp = false
+			break
 		}
-		for i := range user.AppRoles {
-			if !slices.Contains(apps.Names, user.AppRoles[i].AppName) {
-				hasApp = false
-				break
-			}
+	}
+	for i := range user.AppRoles {
+		if !slices.Contains(appNames, user.AppRoles[i].AppName) {
+			hasApp = false
+			break
 		}
-		if !hasApp {
-			return errorutil.Response(c, fiber.StatusUnauthorized, errorutil.Unauthorized, "User does not have the specified app.")
-		}
+	}
+	if !hasApp {
+		return errorutil.Response(c, fiber.StatusUnauthorized, errorutil.Unauthorized, "User does not have the specified app.")
 	}
 
 	// Restore the user.
@@ -515,12 +632,6 @@ func DeleteUser(c *fiber.Ctx) error {
 		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.InvalidParam, "Invalid User ID.")
 	}
 
-	// Get the apps from the query string.
-	apps := &requests.Apps{}
-	if err := c.QueryParser(apps); err != nil {
-		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.BodyParse, err.Error())
-	}
-
 	// Get userID from claims.
 	claim := c.Locals("claims")
 	if claim == nil {
@@ -530,6 +641,12 @@ func DeleteUser(c *fiber.Ctx) error {
 	accessClaims, ok := claim.(*claims.AccessClaims)
 	if !ok {
 		return errorutil.Response(c, fiber.StatusUnauthorized, errorutil.Unauthorized, "Invalid claims type.")
+	}
+
+	// Get apps from claims.
+	appNames := make([]string, len(accessClaims.Apps))
+	for index, name := range slices.Collect(maps.Keys(accessClaims.Apps)) {
+		appNames[index] = utils.CamelcaseToPascalCase(name)
 	}
 
 	// Check if the userID is not the same as the logged-in user.
@@ -546,23 +663,21 @@ func DeleteUser(c *fiber.Ctx) error {
 	}
 
 	// If apps are provided, check if the user has all the apps.
-	if apps.Names != nil {
-		hasApp := true
-		for i := range user.AppRecipes {
-			if !slices.Contains(apps.Names, user.AppRecipes[i].AppName) {
-				hasApp = false
-				break
-			}
+	hasApp := true
+	for i := range user.AppRecipes {
+		if !slices.Contains(appNames, user.AppRecipes[i].AppName) {
+			hasApp = false
+			break
 		}
-		for i := range user.AppRoles {
-			if !slices.Contains(apps.Names, user.AppRoles[i].AppName) {
-				hasApp = false
-				break
-			}
+	}
+	for i := range user.AppRoles {
+		if !slices.Contains(appNames, user.AppRoles[i].AppName) {
+			hasApp = false
+			break
 		}
-		if !hasApp {
-			return errorutil.Response(c, fiber.StatusUnauthorized, errorutil.Unauthorized, "User does not have the specified app.")
-		}
+	}
+	if !hasApp {
+		return errorutil.Response(c, fiber.StatusUnauthorized, errorutil.Unauthorized, "User does not have the specified app.")
 	}
 
 	// Delete the user.

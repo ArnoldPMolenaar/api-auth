@@ -11,7 +11,6 @@ import (
 	errorutil "github.com/ArnoldPMolenaar/api-utils/errors"
 	"github.com/ArnoldPMolenaar/api-utils/utils"
 	"github.com/gofiber/fiber/v2"
-	"slices"
 	"time"
 )
 
@@ -49,39 +48,6 @@ func SignUp(c *fiber.Ctx) error {
 			return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 		} else if !available {
 			return errorutil.Response(c, fiber.StatusBadRequest, errors.PhoneNumberExists, "Phone already exists.")
-		}
-	}
-
-	// Check if roles are valid.
-	for i := range signUp.Roles {
-		if len(signUp.Roles[i].Permissions) == 0 {
-			return errorutil.Response(c, fiber.StatusBadRequest, errors.PermissionsEmpty, "Empty permissions in role is not allowed.")
-		}
-	}
-
-	// Get the apps from the query string.
-	apps := &requests.Apps{}
-	if err := c.QueryParser(apps); err != nil {
-		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.BodyParse, err.Error())
-	}
-
-	// If apps are provided, check if the user has all the apps.
-	if apps.Names != nil {
-		hasApp := true
-		for i := range signUp.Recipes {
-			if !slices.Contains(apps.Names, signUp.Recipes[i].App) {
-				hasApp = false
-				break
-			}
-		}
-		for i := range signUp.Roles {
-			if !slices.Contains(apps.Names, signUp.Roles[i].App) {
-				hasApp = false
-				break
-			}
-		}
-		if !hasApp {
-			return errorutil.Response(c, fiber.StatusUnauthorized, errorutil.Unauthorized, "User does not have the specified app.")
 		}
 	}
 

@@ -152,19 +152,6 @@ func SignUp(signUp *requests.SignUp) (responses.SignUp, error) {
 		})
 	}
 
-	// Bind the user roles.
-	for _, role := range signUp.Roles {
-		userAppRolePermission := &models.UserAppRolePermission{
-			AppName:  role.App,
-			RoleName: role.Role,
-		}
-
-		for i := range role.Permissions {
-			userAppRolePermission.PermissionName = role.Permissions[i]
-			user.AppRoles = append(user.AppRoles, *userAppRolePermission)
-		}
-	}
-
 	// Create the user.
 	if err := database.Pg.Create(&user).Error; err != nil {
 		return response, err
@@ -271,6 +258,70 @@ func SetLastLoginAt(app string, userID uint, lastLoginAt time.Time) error {
 	}
 
 	return nil
+}
+
+// CreateUser method to create a new user.
+func CreateUser(request *requests.CreateUser) (responses.CreateUser, error) {
+	var err error
+	var isTempPassword bool
+	var response responses.CreateUser
+
+	// Generate a password if not provided.
+	if request.Password == "" {
+		if request.Password, err = PasswordGenerate(16, 4, 0); err != nil {
+			return response, err
+		}
+		isTempPassword = true
+	}
+
+	hashedPassword, err := PasswordHash(request.Password)
+	if err != nil {
+		return response, err
+	}
+
+	// Bind the default user properties.
+	user := models.User{
+		Username:       request.Username,
+		Email:          request.Email,
+		PhoneNumber:    request.PhoneNumber,
+		Password:       hashedPassword,
+		IsTempPassword: isTempPassword,
+	}
+
+	// Bind the user recipes.
+	for _, recipe := range request.Recipes {
+		user.AppRecipes = append(user.AppRecipes, models.UserAppRecipe{
+			AppName:    recipe.App,
+			RecipeName: recipe.Recipe,
+		})
+	}
+
+	// Bind the user roles.
+	for _, role := range request.Roles {
+		userAppRolePermission := &models.UserAppRolePermission{
+			AppName:  role.App,
+			RoleName: role.Role,
+		}
+
+		for i := range role.Permissions {
+			userAppRolePermission.PermissionName = role.Permissions[i]
+			user.AppRoles = append(user.AppRoles, *userAppRolePermission)
+		}
+	}
+
+	// Create the user.
+	if err := database.Pg.Create(&user).Error; err != nil {
+		return response, err
+	}
+
+	// If the password is temporary, return the password.
+	if isTempPassword {
+		response.Password = request.Password
+	}
+
+	response.SetCreateUser(&user)
+
+	return response, nil
 }
 
 // UpdateUser method to update a user.
