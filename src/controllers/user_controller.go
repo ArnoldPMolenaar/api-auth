@@ -9,7 +9,6 @@ import (
 	"api-auth/main/src/errors"
 	"api-auth/main/src/models"
 	"api-auth/main/src/services"
-	"api-auth/main/src/utils"
 	errorutil "github.com/ArnoldPMolenaar/api-utils/errors"
 	"github.com/ArnoldPMolenaar/api-utils/pagination"
 	util "github.com/ArnoldPMolenaar/api-utils/utils"
@@ -70,7 +69,7 @@ func GetUser(c *fiber.Ctx) error {
 	}
 	appNames := make([]string, len(accessClaims.Apps))
 	for index, name := range slices.Collect(maps.Keys(accessClaims.Apps)) {
-		appNames[index] = utils.CamelcaseToPascalCase(name)
+		appNames[index] = util.CamelcaseToPascalCase(name)
 	}
 
 	// Get the user.
@@ -151,7 +150,7 @@ func GetUsers(c *fiber.Ctx) error {
 		}
 		appNames := make([]string, len(accessClaims.Apps))
 		for index, name := range slices.Collect(maps.Keys(accessClaims.Apps)) {
-			appNames[index] = utils.CamelcaseToPascalCase(name)
+			appNames[index] = util.CamelcaseToPascalCase(name)
 		}
 
 		dbResult = dbResult.Where("app_name IN ?", appNames)
@@ -198,7 +197,7 @@ func GetUsersLookup(c *fiber.Ctx) error {
 	if len(apps.Names) == 0 {
 		apps.Names = make([]string, len(accessClaims.Apps))
 		for index, name := range appNames {
-			apps.Names[index] = utils.CamelcaseToPascalCase(name)
+			apps.Names[index] = util.CamelcaseToPascalCase(name)
 		}
 	} else {
 		for _, appName := range apps.Names {
@@ -328,7 +327,7 @@ func CreateUser(c *fiber.Ctx) error {
 	}
 	appNames := make([]string, len(accessClaims.Apps))
 	for index, name := range slices.Collect(maps.Keys(accessClaims.Apps)) {
-		appNames[index] = utils.CamelcaseToPascalCase(name)
+		appNames[index] = util.CamelcaseToPascalCase(name)
 	}
 
 	// If apps are provided, check if the user has all the apps.
@@ -380,7 +379,7 @@ func UpdateUser(c *fiber.Ctx) error {
 	}
 	appNames := make([]string, len(accessClaims.Apps))
 	for index, name := range slices.Collect(maps.Keys(accessClaims.Apps)) {
-		appNames[index] = utils.CamelcaseToPascalCase(name)
+		appNames[index] = util.CamelcaseToPascalCase(name)
 	}
 
 	// Get the request body.
@@ -632,7 +631,7 @@ func RestoreUser(c *fiber.Ctx) error {
 	}
 	appNames := make([]string, len(accessClaims.Apps))
 	for index, name := range slices.Collect(maps.Keys(accessClaims.Apps)) {
-		appNames[index] = utils.CamelcaseToPascalCase(name)
+		appNames[index] = util.CamelcaseToPascalCase(name)
 	}
 
 	// Get the user.
@@ -695,7 +694,7 @@ func DeleteUser(c *fiber.Ctx) error {
 	// Get apps from claims.
 	appNames := make([]string, len(accessClaims.Apps))
 	for index, name := range slices.Collect(maps.Keys(accessClaims.Apps)) {
-		appNames[index] = utils.CamelcaseToPascalCase(name)
+		appNames[index] = util.CamelcaseToPascalCase(name)
 	}
 
 	// Check if the userID is not the same as the logged-in user.
