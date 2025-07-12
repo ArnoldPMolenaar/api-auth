@@ -30,6 +30,14 @@ func SignUp(c *fiber.Ctx) error {
 		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.Validator, utils.ValidatorErrors(err))
 	}
 
+	for i := range signUp.Recipes {
+		if available, err := services.IsAppAvailable(signUp.Recipes[i].App); err != nil {
+			return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
+		} else if !available {
+			return errorutil.Response(c, fiber.StatusBadRequest, errors.AppExists, "AppName does not exist.")
+		}
+	}
+
 	// Check if user already exists.
 	if available, err := services.IsUsernameAvailable(signUp.Username); err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
