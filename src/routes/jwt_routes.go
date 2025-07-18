@@ -20,6 +20,9 @@ func JwtRoutes(a *fiber.App) {
 	// Register a route for POST /v1/sign-out.
 	route.Post("/sign-out", middleware.JWTProtected(), controllers.SignOut)
 
+	// Register routes for the logged-in user.
+	route.Get("/user", middleware.JWTProtected(), controllers.GetSignedInUser)
+
 	// Register routes for the user CRUD.
 	route.Get("/users", middleware.JWTProtected(), controllers.GetUsers)
 	route.Post("/users", middleware.JWTProtected(), controllers.CreateUser)

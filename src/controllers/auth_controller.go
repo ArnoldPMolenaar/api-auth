@@ -143,6 +143,33 @@ func UsernamePasswordSignIn(c *fiber.Ctx) error {
 	return c.JSON(response)
 }
 
+// GetSignedInUser read the header key Authorization and gives the signed-in user.
+func GetSignedInUser(c *fiber.Ctx) error {
+	// Get userID from claims.
+	authHeader := c.Get("Authorization")
+	claim := c.Locals("claims")
+	if claim == nil {
+		return errorutil.Response(c, fiber.StatusUnauthorized, errorutil.Unauthorized, "Claims not found.")
+	}
+
+	accessClaims, ok := claim.(*claims.AccessClaims)
+	if !ok {
+		return errorutil.Response(c, fiber.StatusUnauthorized, errorutil.Unauthorized, "Invalid claims type.")
+	}
+
+	// Get the user.
+	user, err := services.GetUserByID(uint(accessClaims.Id))
+	if err != nil {
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err)
+	}
+
+	// Create a new response.
+	response := &responses.UsernamePasswordSignIn{}
+	response.SetUsernamePasswordSignIn(&user, authHeader, accessClaims.ExpiresAt)
+
+	return c.JSON(response)
+}
+
 // Token method to create a new access token and invalidate the old one.
 // Used to refresh the session.
 func Token(c *fiber.Ctx) error {
