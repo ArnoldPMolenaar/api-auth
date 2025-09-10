@@ -8,10 +8,11 @@ import (
 	"api-auth/main/src/errors"
 	"api-auth/main/src/models"
 	"api-auth/main/src/services"
+	"time"
+
 	errorutil "github.com/ArnoldPMolenaar/api-utils/errors"
 	"github.com/ArnoldPMolenaar/api-utils/utils"
 	"github.com/gofiber/fiber/v2"
-	"time"
 )
 
 // SignUp method to create a new user.
@@ -166,6 +167,65 @@ func GetSignedInUser(c *fiber.Ctx) error {
 	// Create a new response.
 	response := &responses.UsernamePasswordSignIn{}
 	response.SetUsernamePasswordSignIn(&user, authHeader, accessClaims.ExpiresAt)
+
+	return c.JSON(response)
+}
+
+// UpdateUserIdentityApp method to update the user session app.
+func UpdateUserIdentityApp(c *fiber.Ctx) error {
+	// Create a new user auth struct.
+	request := &requests.UpdateUserIdentityApp{}
+
+	// Check, if received JSON data is parsed.
+	if err := c.BodyParser(request); err != nil {
+		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.BodyParse, err.Error())
+	}
+
+	// Validate signIn fields.
+	validate := utils.NewValidator()
+	if err := validate.Struct(request); err != nil {
+		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.Validator, utils.ValidatorErrors(err))
+	}
+
+	// Get identity from claims.
+	claim := c.Locals("claims")
+	if claim == nil {
+		return errorutil.Response(c, fiber.StatusUnauthorized, errorutil.Unauthorized, "Claims not found.")
+	}
+
+	accessClaims, ok := claim.(*claims.AccessClaims)
+	if !ok {
+		return errorutil.Response(c, fiber.StatusUnauthorized, errorutil.Unauthorized, "Invalid claims type.")
+	}
+
+	// Check if app from request exists in the claims.
+	appKey := utils.PascalCaseToCamelcase(request.App)
+	if _, ok := accessClaims.Apps[appKey]; !ok {
+		return errorutil.Response(c, fiber.StatusBadRequest, errors.AppUnknown, "App does not exist in claims.")
+	}
+
+	// Set new claims.
+	oldApp := accessClaims.App
+	accessClaims.App = request.App
+	jwt, err := services.TokenUpdate(accessClaims, enums.Access)
+	if err != nil {
+		return errorutil.Response(c, fiber.StatusInternalServerError, errors.TokenCreate, err.Error())
+	}
+
+	// Update the cache with the new app and token.
+	if err = services.TokenToCache(accessClaims.App, accessClaims.DeviceID, uint(accessClaims.Id), jwt, accessClaims.ExpiresAt.Time, enums.Access); err != nil {
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.CacheError, err)
+	}
+
+	// Delete the old token from the cache.
+	if err = services.TokenDeleteFromCache(oldApp, accessClaims.DeviceID, uint(accessClaims.Id), enums.Access); err != nil {
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.CacheError, err)
+	}
+
+	// Create a token response.
+	response := &responses.Token{}
+	response.Token = jwt
+	response.ExpiresAt = accessClaims.ExpiresAt.Time
 
 	return c.JSON(response)
 }

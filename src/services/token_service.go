@@ -8,12 +8,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/ArnoldPMolenaar/api-utils/utils"
-	"github.com/gofiber/fiber/v2/log"
-	"github.com/golang-jwt/jwt/v5"
 	"os"
 	"strconv"
 	"time"
+
+	"github.com/ArnoldPMolenaar/api-utils/utils"
+	"github.com/gofiber/fiber/v2/log"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 var TokenRefreshExpireHours int
@@ -92,6 +93,40 @@ func TokenCreate(payload interface{}, expireTime int, duration time.Duration, to
 	tokenString, err := token.SignedString([]byte(TokenSecretKey))
 
 	return tokenString, exp, err
+}
+
+// TokenUpdate updates an existing token with the given payload and token type.
+// It keeps the original issued at and expiration time.
+func TokenUpdate(payload interface{}, tokenType enums.TokenType) (string, error) {
+	var claim jwt.Claims
+
+	switch tokenType {
+	case enums.Access:
+		accessClaims, ok := payload.(*claims.AccessClaims)
+		if !ok {
+			return "", errors.New("invalid claim type for access token")
+		}
+		claim = accessClaims
+	case enums.PasswordReset:
+		passwordResetClaims, ok := payload.(*claims.PasswordResetClaims)
+		if !ok {
+			return "", errors.New("invalid claim type for password reset token")
+		}
+		claim = passwordResetClaims
+	case enums.EmailVerification:
+		emailClaims, ok := payload.(*claims.EmailVerificationClaims)
+		if !ok {
+			return "", errors.New("invalid claim type for email verification token")
+		}
+		claim = emailClaims
+	default:
+		return "", errors.New("unsupported token type")
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claim)
+	tokenString, err := token.SignedString([]byte(TokenSecretKey))
+
+	return tokenString, err
 }
 
 // TokenParse parses token, validates it and returns the claims from the token or an error.

@@ -3,6 +3,7 @@ package routes
 import (
 	"api-auth/main/src/controllers"
 	"api-auth/main/src/middleware"
+
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -16,6 +17,7 @@ func JwtRoutes(a *fiber.App) {
 	route.Get("/token/verify", middleware.JWTProtected(), controllers.TokenVerify)
 	route.Get("/token/refresh", middleware.JWTProtected(), controllers.CreateRefreshToken)
 	route.Post("/token/email", middleware.JWTProtected(), controllers.TokenEmailVerification)
+	route.Post("/token/app", middleware.JWTProtected(), controllers.UpdateUserIdentityApp)
 
 	// Register a route for POST /v1/sign-out.
 	route.Post("/sign-out", middleware.JWTProtected(), controllers.SignOut)

@@ -5,6 +5,7 @@ const (
 	UsernameExists                         = "usernameExists"
 	EmailExists                            = "emailExists"
 	AppExists                              = "appExists"
+	AppUnknown                             = "appUnknown"
 	PhoneNumberExists                      = "phoneNumberExists"
 	UsernameEmailUnknown                   = "usernameEmailUnknown"
 	EmailUnknown                           = "emailUnknown"
