@@ -9,13 +9,14 @@ import (
 	"api-auth/main/src/errors"
 	"api-auth/main/src/models"
 	"api-auth/main/src/services"
+	"maps"
+	"slices"
+	"strings"
+
 	errorutil "github.com/ArnoldPMolenaar/api-utils/errors"
 	"github.com/ArnoldPMolenaar/api-utils/pagination"
 	util "github.com/ArnoldPMolenaar/api-utils/utils"
 	"github.com/gofiber/fiber/v2"
-	"maps"
-	"slices"
-	"strings"
 )
 
 // GetUserRecipesByUsername method to get user recipes by username.
@@ -128,13 +129,13 @@ func GetUsers(c *fiber.Ctx) error {
 		limit = 10
 	}
 	offset := pagination.Offset(page, limit)
-	dbResult := database.Pg.Unscoped().Scopes(queryFunc, sortFunc).
+	dbResult := database.Pg.Scopes(queryFunc, sortFunc).
 		Joins("JOIN user_app_recipes ON user_id = id").
 		Limit(limit).
 		Offset(offset)
 
 	total := int64(0)
-	dbCount := database.Pg.Unscoped().Scopes(queryFunc).
+	dbCount := database.Pg.Scopes(queryFunc).
 		Model(&models.User{}).
 		Joins("JOIN user_app_recipes ON user_id = id")
 
