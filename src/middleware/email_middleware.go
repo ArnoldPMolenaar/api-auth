@@ -5,9 +5,10 @@ import (
 	"api-auth/main/src/enums"
 	errorint "api-auth/main/src/errors"
 	"api-auth/main/src/services"
+	"time"
+
 	errorsutil "github.com/ArnoldPMolenaar/api-utils/errors"
 	"github.com/gofiber/fiber/v2"
-	"time"
 )
 
 // EmailProtected middleware checks if the email verification token is valid.
@@ -98,7 +99,7 @@ func EmailProtected() func(*fiber.Ctx) error {
 		}
 
 		// Check if the email exists.
-		if available, err := services.IsEmailAvailable(emailClaims.Email); err != nil {
+		if available, err := services.IsEmailAvailable(emailClaims.Email, ""); err != nil {
 			return errorsutil.Response(
 				c,
 				fiber.StatusInternalServerError,

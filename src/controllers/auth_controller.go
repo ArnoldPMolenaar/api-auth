@@ -40,20 +40,20 @@ func SignUp(c *fiber.Ctx) error {
 	}
 
 	// Check if user already exists.
-	if available, err := services.IsUsernameAvailable(signUp.Username); err != nil {
+	if available, err := services.IsUsernameAvailable(signUp.Username, ""); err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 	} else if !available {
 		return errorutil.Response(c, fiber.StatusBadRequest, errors.UsernameExists, "Username already exists.")
 	}
 
-	if available, err := services.IsEmailAvailable(signUp.Email); err != nil {
+	if available, err := services.IsEmailAvailable(signUp.Email, ""); err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 	} else if !available {
 		return errorutil.Response(c, fiber.StatusBadRequest, errors.EmailExists, "Email already exists.")
 	}
 
 	if signUp.PhoneNumber != nil {
-		if available, err := services.IsPhoneNumberAvailable(signUp.PhoneNumber); err != nil {
+		if available, err := services.IsPhoneNumberAvailable(signUp.PhoneNumber, ""); err != nil {
 			return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 		} else if !available {
 			return errorutil.Response(c, fiber.StatusBadRequest, errors.PhoneNumberExists, "Phone already exists.")

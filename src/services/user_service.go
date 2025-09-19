@@ -7,15 +7,24 @@ import (
 	"api-auth/main/src/enums"
 	"api-auth/main/src/models"
 	"database/sql"
-	"github.com/google/uuid"
-	"gorm.io/gorm"
 	"slices"
 	"time"
+
+	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 // IsUsernameAvailable method to check if a username is available.
-func IsUsernameAvailable(username string) (bool, error) {
-	if result := database.Pg.Limit(1).Find(&models.User{}, "username = ?", username); result.Error != nil {
+func IsUsernameAvailable(username, ignore string) (bool, error) {
+	query := database.Pg.Limit(1)
+	var result *gorm.DB
+	if ignore != "" {
+		result = query.Find(&models.User{}, "username = ? AND username != ?", username, ignore)
+	} else {
+		result = query.Find(&models.User{}, "username = ?", username)
+	}
+
+	if result.Error != nil {
 		return false, result.Error
 	} else {
 		return result.RowsAffected == 0, nil
@@ -23,8 +32,16 @@ func IsUsernameAvailable(username string) (bool, error) {
 }
 
 // IsEmailAvailable method to check if an email is available.
-func IsEmailAvailable(email string) (bool, error) {
-	if result := database.Pg.Limit(1).Find(&models.User{}, "email = ?", email); result.Error != nil {
+func IsEmailAvailable(email, ignore string) (bool, error) {
+	query := database.Pg.Limit(1)
+	var result *gorm.DB
+	if ignore != "" {
+		result = query.Find(&models.User{}, "email = ? AND email != ?", email, ignore)
+	} else {
+		result = query.Find(&models.User{}, "email = ?", email)
+	}
+
+	if result.Error != nil {
 		return false, result.Error
 	} else {
 		return result.RowsAffected == 0, nil
@@ -41,8 +58,16 @@ func IsEmailVerified(email string) (bool, error) {
 }
 
 // IsPhoneNumberAvailable method to check if a phone number is available.
-func IsPhoneNumberAvailable(phoneNumber *string) (bool, error) {
-	if result := database.Pg.Limit(1).Find(&models.User{}, "phone_number = ?", phoneNumber); result.Error != nil {
+func IsPhoneNumberAvailable(phoneNumber *string, ignore string) (bool, error) {
+	query := database.Pg.Limit(1)
+	var result *gorm.DB
+	if ignore != "" {
+		result = query.Find(&models.User{}, "phone_number = ? AND phone_number != ?", phoneNumber, ignore)
+	} else {
+		result = query.Find(&models.User{}, "phone_number = ?", phoneNumber)
+	}
+
+	if result.Error != nil {
 		return false, result.Error
 	} else {
 		return result.RowsAffected == 0, nil
