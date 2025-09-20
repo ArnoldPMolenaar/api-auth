@@ -171,6 +171,79 @@ func GetSignedInUser(c *fiber.Ctx) error {
 	return c.JSON(response)
 }
 
+// UpdateSignedInUser method to update the user that is signed in.
+func UpdateSignedInUser(c *fiber.Ctx) error {
+	// Create a new user auth struct.
+	request := &requests.UpdateUserSignedIn{}
+
+	// Get userID from claims.
+	claim := c.Locals("claims")
+	if claim == nil {
+		return errorutil.Response(c, fiber.StatusUnauthorized, errorutil.Unauthorized, "Claims not found.")
+	}
+	accessClaims, ok := claim.(*claims.AccessClaims)
+	if !ok {
+		return errorutil.Response(c, fiber.StatusUnauthorized, errorutil.Unauthorized, "Invalid claims type.")
+	}
+	userID := accessClaims.Id
+
+	// Get the request body.
+	if err := c.BodyParser(request); err != nil {
+		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.BodyParse, "Invalid request body.")
+	}
+
+	// Validate user fields.
+	validate := utils.NewValidator()
+	if err := validate.Struct(request); err != nil {
+		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.Validator, utils.ValidatorErrors(err))
+	}
+
+	// Get the user.
+	user, err := services.GetUserByID(uint(userID))
+	if err != nil {
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
+	} else if user.ID == 0 {
+		return errorutil.Response(c, fiber.StatusNotFound, errorutil.NotFound, "User not found.")
+	}
+
+	// Check if user already exists.
+	if request.Username != user.Username {
+		if available, err := services.IsUsernameAvailable(request.Username, ""); err != nil {
+			return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
+		} else if !available {
+			return errorutil.Response(c, fiber.StatusBadRequest, errors.UsernameExists, "Username already exists.")
+		}
+	}
+
+	if request.Email != user.Email {
+		if available, err := services.IsEmailAvailable(request.Email, ""); err != nil {
+			return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
+		} else if !available {
+			return errorutil.Response(c, fiber.StatusBadRequest, errors.EmailExists, "Email already exists.")
+		}
+	}
+
+	if request.PhoneNumber != nil && (user.PhoneNumber == nil || *request.PhoneNumber != *user.PhoneNumber) {
+		if available, err := services.IsPhoneNumberAvailable(request.PhoneNumber, ""); err != nil {
+			return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
+		} else if !available {
+			return errorutil.Response(c, fiber.StatusBadRequest, errors.PhoneNumberExists, "Phone already exists.")
+		}
+	}
+
+	// Update the user.
+	updatedUser, err := services.UpdateUserSignedIn(&user, request)
+	if err != nil {
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
+	}
+
+	// Return the user.
+	response := responses.User{}
+	response.SetUser(updatedUser)
+
+	return c.JSON(response)
+}
+
 // UpdateUserIdentityApp method to update the user session app.
 func UpdateUserIdentityApp(c *fiber.Ctx) error {
 	// Create a new user auth struct.

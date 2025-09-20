@@ -24,6 +24,7 @@ func JwtRoutes(a *fiber.App) {
 
 	// Register routes for the logged-in user.
 	route.Get("/user", middleware.JWTProtected(), controllers.GetSignedInUser)
+	route.Put("/user", middleware.JWTProtected(), controllers.UpdateSignedInUser)
 
 	// Register routes for the user CRUD.
 	route.Get("/users", middleware.JWTProtected(), controllers.GetUsers)

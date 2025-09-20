@@ -472,6 +472,27 @@ func UpdateUser(user *models.User, requestUser *requests.UpdateUser, apps []stri
 	return user, nil
 }
 
+// UpdateUserSignedIn method to update a signed-in user.
+func UpdateUserSignedIn(user *models.User, requestUser *requests.UpdateUserSignedIn) (*models.User, error) {
+	if requestUser.Email != user.Email {
+		user.EmailVerifiedAt = sql.NullTime{}
+	}
+	if requestUser.PhoneNumber != user.PhoneNumber {
+		user.PhoneVerifiedAt = sql.NullTime{}
+	}
+
+	user.Username = requestUser.Username
+	user.Email = requestUser.Email
+	user.PhoneNumber = requestUser.PhoneNumber
+	user.UpdatedAt = time.Now().UTC()
+
+	if err := database.Pg.Save(&user).Error; err != nil {
+		return nil, err
+	}
+
+	return user, nil
+}
+
 // UpdateUserPassword method to update the user password.
 func UpdateUserPassword(userID uint, app, password string) error {
 	hashedPassword, err := PasswordHash(password)
