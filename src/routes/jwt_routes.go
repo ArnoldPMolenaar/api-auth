@@ -25,6 +25,7 @@ func JwtRoutes(a *fiber.App) {
 	// Register routes for the logged-in user.
 	route.Get("/user", middleware.JWTProtected(), controllers.GetSignedInUser)
 	route.Put("/user", middleware.JWTProtected(), controllers.UpdateSignedInUser)
+	route.Put("/user/password", middleware.JWTProtected(), controllers.UpdateUserPassword)
 
 	// Register routes for the user CRUD.
 	route.Get("/users", middleware.JWTProtected(), controllers.GetUsers)
@@ -33,6 +34,5 @@ func JwtRoutes(a *fiber.App) {
 	route.Get("/users/:id", middleware.JWTProtected(), controllers.GetUser)
 	route.Put("/users/:id", middleware.JWTProtected(), controllers.UpdateUser)
 	route.Delete("/users/:id", middleware.JWTProtected(), controllers.DeleteUser)
-	route.Put("/users/:id/password", middleware.JWTProtected(), controllers.UpdateUserPassword)
 	route.Put("/users/:id/restore", middleware.JWTProtected(), controllers.RestoreUser)
 }

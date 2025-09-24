@@ -474,16 +474,17 @@ outer:
 	return c.JSON(response)
 }
 
-// UpdateUserPassword method to update user password by ID.
+// UpdateUserPassword method to update user password of the signed-in user.
 func UpdateUserPassword(c *fiber.Ctx) error {
-	// Get the userID parameter from the URL.
-	userIDParam := c.Params("id")
-	if userIDParam == "" {
-		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.MissingRequiredParam, "User ID is required.")
+	// Get userID from claims.
+	claim := c.Locals("claims")
+	if claim == nil {
+		return errorutil.Response(c, fiber.StatusUnauthorized, errorutil.Unauthorized, "Claims not found.")
 	}
-	userID, err := util.StringToUint(userIDParam)
-	if err != nil {
-		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.InvalidParam, "Invalid User ID.")
+
+	accessClaims, ok := claim.(*claims.AccessClaims)
+	if !ok {
+		return errorutil.Response(c, fiber.StatusUnauthorized, errorutil.Unauthorized, "Invalid claims type.")
 	}
 
 	// Get the request body.
@@ -505,8 +506,14 @@ func UpdateUserPassword(c *fiber.Ctx) error {
 		return errorutil.Response(c, fiber.StatusBadRequest, errors.AppExists, "AppName does not exist.")
 	}
 
+	// Check if app from request exists in the claims.
+	appKey := util.PascalCaseToCamelcase(requestPassword.App)
+	if _, ok := accessClaims.Apps[appKey]; !ok {
+		return errorutil.Response(c, fiber.StatusBadRequest, errors.AppUnknown, "App does not exist in claims.")
+	}
+
 	// Get the user.
-	user, err := services.GetUserByID(userID)
+	user, err := services.GetUserByID(uint(accessClaims.Id))
 	if err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 	} else if user.ID == 0 {
