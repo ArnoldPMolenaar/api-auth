@@ -506,13 +506,8 @@ func UpdateUserPassword(userID uint, app, password string) error {
 		if result := database.Pg.Model(&models.User{}).
 			Where("id = ?", userID).
 			Update("password", hashedPassword).
+			Update("password_changed_at", time.Now().UTC()).
 			Update("is_temp_password", false); result.Error != nil {
-			return result.Error
-		}
-
-		if result := database.Pg.Model(&models.UserAppActivity{}).
-			Where("user_id = ? AND app_name = ?", userID, app).
-			Update("last_password_change_at", time.Now().UTC()); result.Error != nil {
 			return result.Error
 		}
 

@@ -5,10 +5,9 @@ import (
 )
 
 type UserAppActivity struct {
-	UserID               uint   `gorm:"primaryKey:true;not null;autoIncrement:false"`
-	AppName              string `gorm:"primaryKey:true;not null;autoIncrement:false"`
-	LastLoginAt          sql.NullTime
-	LastPasswordChangeAt sql.NullTime
+	UserID      uint   `gorm:"primaryKey:true;not null;autoIncrement:false"`
+	AppName     string `gorm:"primaryKey:true;not null;autoIncrement:false"`
+	LastLoginAt sql.NullTime
 
 	// Relationships.
 	User User `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;foreignKey:UserID;references:ID"`

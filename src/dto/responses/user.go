@@ -6,24 +6,24 @@ import (
 )
 
 type UserActivity struct {
-	App                  string     `json:"app"`
-	LastLoginAt          *time.Time `json:"lastLoginAt"`
-	LastPasswordChangeAt *time.Time `json:"lastPasswordChangeAt"`
+	App         string     `json:"app"`
+	LastLoginAt *time.Time `json:"lastLoginAt"`
 }
 
 type User struct {
-	ID              uint           `json:"id"`
-	Username        string         `json:"username"`
-	Email           string         `json:"email"`
-	PhoneNumber     *string        `json:"phoneNumber"`
-	IsTempPassword  bool           `json:"isTempPassword"`
-	EmailVerifiedAt *time.Time     `json:"emailVerifiedAt"`
-	PhoneVerifiedAt *time.Time     `json:"phoneVerifiedAt"`
-	CreatedAt       time.Time      `json:"createdAt"`
-	UpdatedAt       time.Time      `json:"updatedAt"`
-	Roles           []AppRole      `json:"roles"`
-	Recipes         []AppRecipe    `json:"recipes"`
-	Activities      []UserActivity `json:"activities"`
+	ID                uint           `json:"id"`
+	Username          string         `json:"username"`
+	Email             string         `json:"email"`
+	PhoneNumber       *string        `json:"phoneNumber"`
+	IsTempPassword    bool           `json:"isTempPassword"`
+	EmailVerifiedAt   *time.Time     `json:"emailVerifiedAt"`
+	PhoneVerifiedAt   *time.Time     `json:"phoneVerifiedAt"`
+	PasswordChangedAt *time.Time     `json:"passwordChangedAt"`
+	CreatedAt         time.Time      `json:"createdAt"`
+	UpdatedAt         time.Time      `json:"updatedAt"`
+	Roles             []AppRole      `json:"roles"`
+	Recipes           []AppRecipe    `json:"recipes"`
+	Activities        []UserActivity `json:"activities"`
 }
 
 // SetUser method to set user data from models.User{}.
@@ -42,6 +42,12 @@ func (u *User) SetUser(user *models.User) {
 	u.PhoneVerifiedAt = func() *time.Time {
 		if user.PhoneVerifiedAt.Valid {
 			return &user.PhoneVerifiedAt.Time
+		}
+		return nil
+	}()
+	u.PasswordChangedAt = func() *time.Time {
+		if user.PasswordChangedAt.Valid {
+			return &user.PasswordChangedAt.Time
 		}
 		return nil
 	}()
@@ -86,12 +92,6 @@ func (u *User) SetUser(user *models.User) {
 			LastLoginAt: func() *time.Time {
 				if user.AppActivity[i].LastLoginAt.Valid {
 					return &user.AppActivity[i].LastLoginAt.Time
-				}
-				return nil
-			}(),
-			LastPasswordChangeAt: func() *time.Time {
-				if user.AppActivity[i].LastPasswordChangeAt.Valid {
-					return &user.AppActivity[i].LastPasswordChangeAt.Time
 				}
 				return nil
 			}(),
