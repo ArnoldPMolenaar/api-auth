@@ -99,7 +99,7 @@ func EmailProtected() func(*fiber.Ctx) error {
 		}
 
 		// Check if the email exists.
-		if available, err := services.IsEmailAvailable(emailClaims.Email, ""); err != nil {
+		if available, err := services.IsEmailAvailable(emailClaims.App, emailClaims.Email, ""); err != nil {
 			return errorsutil.Response(
 				c,
 				fiber.StatusInternalServerError,
@@ -116,7 +116,7 @@ func EmailProtected() func(*fiber.Ctx) error {
 		}
 
 		// Check if the email is verified.
-		if verified, err := services.IsEmailVerified(emailClaims.Email); err != nil {
+		if verified, err := services.IsEmailVerified(emailClaims.App, emailClaims.Email); err != nil {
 			return errorsutil.Response(
 				c,
 				fiber.StatusInternalServerError,

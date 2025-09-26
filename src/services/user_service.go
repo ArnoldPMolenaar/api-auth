@@ -15,13 +15,13 @@ import (
 )
 
 // IsUsernameAvailable method to check if a username is available.
-func IsUsernameAvailable(username, ignore string) (bool, error) {
+func IsUsernameAvailable(app, username, ignore string) (bool, error) {
 	query := database.Pg.Limit(1)
 	var result *gorm.DB
 	if ignore != "" {
-		result = query.Find(&models.User{}, "username = ? AND username != ?", username, ignore)
+		result = query.Find(&models.User{}, "app_name = ? AND username = ? AND username != ?", app, username, ignore)
 	} else {
-		result = query.Find(&models.User{}, "username = ?", username)
+		result = query.Find(&models.User{}, "app_name = ? AND username = ?", app, username)
 	}
 
 	if result.Error != nil {
@@ -32,13 +32,13 @@ func IsUsernameAvailable(username, ignore string) (bool, error) {
 }
 
 // IsEmailAvailable method to check if an email is available.
-func IsEmailAvailable(email, ignore string) (bool, error) {
+func IsEmailAvailable(app, email, ignore string) (bool, error) {
 	query := database.Pg.Limit(1)
 	var result *gorm.DB
 	if ignore != "" {
-		result = query.Find(&models.User{}, "email = ? AND email != ?", email, ignore)
+		result = query.Find(&models.User{}, "app_name = ? AND email = ? AND email != ?", app, email, ignore)
 	} else {
-		result = query.Find(&models.User{}, "email = ?", email)
+		result = query.Find(&models.User{}, "app_name = ? AND email = ?", app, email)
 	}
 
 	if result.Error != nil {
@@ -49,8 +49,8 @@ func IsEmailAvailable(email, ignore string) (bool, error) {
 }
 
 // IsEmailVerified method to check if an email is verified.
-func IsEmailVerified(email string) (bool, error) {
-	if result := database.Pg.Limit(1).Find(&models.User{}, "email = ? AND email_verified_at IS NOT NULL", email); result.Error != nil {
+func IsEmailVerified(app, email string) (bool, error) {
+	if result := database.Pg.Limit(1).Find(&models.User{}, "app_name = ? AND email = ? AND email_verified_at IS NOT NULL", app, email); result.Error != nil {
 		return false, result.Error
 	} else {
 		return result.RowsAffected == 1, nil
@@ -58,13 +58,13 @@ func IsEmailVerified(email string) (bool, error) {
 }
 
 // IsPhoneNumberAvailable method to check if a phone number is available.
-func IsPhoneNumberAvailable(phoneNumber *string, ignore string) (bool, error) {
+func IsPhoneNumberAvailable(app string, phoneNumber *string, ignore string) (bool, error) {
 	query := database.Pg.Limit(1)
 	var result *gorm.DB
 	if ignore != "" {
-		result = query.Find(&models.User{}, "phone_number = ? AND phone_number != ?", phoneNumber, ignore)
+		result = query.Find(&models.User{}, "app_name = ? AND phone_number = ? AND phone_number != ?", app, phoneNumber, ignore)
 	} else {
-		result = query.Find(&models.User{}, "phone_number = ?", phoneNumber)
+		result = query.Find(&models.User{}, "app_name = ? AND phone_number = ?", app, phoneNumber)
 	}
 
 	if result.Error != nil {
@@ -75,8 +75,8 @@ func IsPhoneNumberAvailable(phoneNumber *string, ignore string) (bool, error) {
 }
 
 // IsUserActive method to check if a user is active.
-func IsUserActive(username string) (bool, error) {
-	if result := database.Pg.Limit(1).Find(&models.User{}, "username = ? OR email = ?", username, username); result.Error != nil {
+func IsUserActive(app, username string) (bool, error) {
+	if result := database.Pg.Limit(1).Find(&models.User{}, "app_name = ? AND (username = ? OR email = ?)", app, username, username); result.Error != nil {
 		return false, result.Error
 	} else {
 		return result.RowsAffected == 1, nil
@@ -89,7 +89,7 @@ func HasUserRecipe(app, username string, recipe enums.Recipe) (bool, error) {
 
 	if result := database.Pg.Model(&models.User{}).
 		Joins("JOIN user_app_recipes ON user_app_recipes.user_id = users.id").
-		Where("username = ? AND recipe_name = ? AND app_name = ?", username, recipe, app).
+		Where("username = ? AND recipe_name = ? AND user_app_recipes.app_name = ?", username, recipe, app).
 		Count(&count); result.Error != nil {
 		return false, result.Error
 	}
@@ -98,13 +98,13 @@ func HasUserRecipe(app, username string, recipe enums.Recipe) (bool, error) {
 }
 
 // IsPasswordCorrect method to validate a password.
-func IsPasswordCorrect(username, password string) (bool, error) {
+func IsPasswordCorrect(app, username, password string) (bool, error) {
 	var passwordHash string
 
 	// Get the password from the user.
 	if result := database.Pg.Model(&models.User{}).
 		Select("password").
-		Where("username = ? OR email = ?", username, username).
+		Where("app_name = ? AND (username = ? OR email = ?)", app, username, username).
 		Find(&passwordHash); result.Error != nil {
 		return false, result.Error
 	}
@@ -162,6 +162,7 @@ func SignUp(signUp *requests.SignUp) (responses.SignUp, error) {
 
 	// Bind the default user properties.
 	user := models.User{
+		AppName:        signUp.AppName,
 		Username:       signUp.Username,
 		Email:          signUp.Email,
 		PhoneNumber:    signUp.PhoneNumber,
@@ -199,7 +200,7 @@ func GetUserRecipesByUsername(app, username string) ([]string, error) {
 	if result := database.Pg.Model(&models.User{}).
 		Joins("JOIN user_app_recipes ON user_app_recipes.user_id = users.id").
 		Select("user_app_recipes.recipe_name").
-		Where("username = ? AND app_name = ?", username, app).
+		Where("username = ? AND user_app_recipes.app_name = ?", username, app).
 		Find(&recipes); result.Error != nil {
 		return nil, result.Error
 	}
@@ -208,11 +209,11 @@ func GetUserRecipesByUsername(app, username string) ([]string, error) {
 }
 
 // GetUserByUsername method to get a user by username.
-func GetUserByUsername(username string) (models.User, error) {
+func GetUserByUsername(app, username string) (models.User, error) {
 	var user models.User
 
 	if result := database.Pg.Preload("AppRoles").
-		Find(&user, "username = ?", username); result.Error != nil {
+		Find(&user, "app_name = ? AND username = ?", app, username); result.Error != nil {
 		return user, result.Error
 	}
 
@@ -220,10 +221,10 @@ func GetUserByUsername(username string) (models.User, error) {
 }
 
 // GetUserByEmail method to get a user by email.
-func GetUserByEmail(email string) (models.User, error) {
+func GetUserByEmail(app, email string) (models.User, error) {
 	var user models.User
 
-	if result := database.Pg.Find(&user, "email = ?", email); result.Error != nil {
+	if result := database.Pg.Find(&user, "app_name = ? AND email = ?", app, email); result.Error != nil {
 		return user, result.Error
 	}
 
@@ -322,6 +323,7 @@ func CreateUser(request *requests.CreateUser) (responses.CreateUser, error) {
 
 	// Bind the default user properties.
 	user := models.User{
+		AppName:        request.AppName,
 		Username:       request.Username,
 		Email:          request.Email,
 		PhoneNumber:    request.PhoneNumber,

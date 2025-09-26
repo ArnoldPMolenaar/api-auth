@@ -26,7 +26,7 @@ func GetUserRecipesByUsername(c *fiber.Ctx) error {
 	username := string(values.Peek("username"))
 
 	// Check if user exists.
-	if active, err := services.IsUserActive(username); err != nil {
+	if active, err := services.IsUserActive(app, username); err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 	} else if !active {
 		return errorutil.Response(c, fiber.StatusBadRequest, errors.UsernameEmailUnknown, "Username and Email is unknown.")
@@ -130,14 +130,12 @@ func GetUsers(c *fiber.Ctx) error {
 	}
 	offset := pagination.Offset(page, limit)
 	dbResult := database.Pg.Scopes(queryFunc, sortFunc).
-		Joins("JOIN user_app_recipes ON user_id = id").
 		Limit(limit).
 		Offset(offset)
 
 	total := int64(0)
 	dbCount := database.Pg.Scopes(queryFunc).
-		Model(&models.User{}).
-		Joins("JOIN user_app_recipes ON user_id = id")
+		Model(&models.User{})
 
 	// Get apps from claims.
 	if !strings.Contains(values.String(), "app_name") {
@@ -154,8 +152,8 @@ func GetUsers(c *fiber.Ctx) error {
 			appNames[index] = util.CamelcaseToPascalCase(name)
 		}
 
-		dbResult = dbResult.Where("app_name IN ?", appNames)
-		dbCount = dbCount.Where("app_name IN ?", appNames)
+		dbResult = dbResult.Joins("JOIN user_app_recipes ON user_id = id").Where("user_app_recipes.app_name IN ?", appNames)
+		dbCount = dbCount.Joins("JOIN user_app_recipes ON user_id = id").Where("user_app_recipes.app_name IN ?", appNames)
 	}
 
 	if dbResult.Find(&users).Error != nil {
@@ -224,6 +222,7 @@ func GetUsersLookup(c *fiber.Ctx) error {
 
 // IsUsernameAvailable method to check if username is available.
 func IsUsernameAvailable(c *fiber.Ctx) error {
+	app := c.Query("app")
 	username := c.Query("username")
 	ignore := c.Query("ignore", "")
 
@@ -231,7 +230,7 @@ func IsUsernameAvailable(c *fiber.Ctx) error {
 		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.MissingRequiredParam, "Username is required.")
 	}
 
-	if available, err := services.IsUsernameAvailable(username, ignore); err != nil {
+	if available, err := services.IsUsernameAvailable(app, username, ignore); err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 	} else {
 		response := responses.Available{}
@@ -243,6 +242,7 @@ func IsUsernameAvailable(c *fiber.Ctx) error {
 
 // IsEmailAvailable method to check if email is available.
 func IsEmailAvailable(c *fiber.Ctx) error {
+	app := c.Query("app")
 	email := c.Query("email")
 	ignore := c.Query("ignore", "")
 
@@ -250,7 +250,7 @@ func IsEmailAvailable(c *fiber.Ctx) error {
 		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.MissingRequiredParam, "Email is required.")
 	}
 
-	if available, err := services.IsEmailAvailable(email, ignore); err != nil {
+	if available, err := services.IsEmailAvailable(app, email, ignore); err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 	} else {
 		response := responses.Available{}
@@ -262,6 +262,7 @@ func IsEmailAvailable(c *fiber.Ctx) error {
 
 // IsPhoneNumberAvailable method to check if phone number is available.
 func IsPhoneNumberAvailable(c *fiber.Ctx) error {
+	app := c.Query("app")
 	phoneNumber := c.Query("phoneNumber")
 	ignore := c.Query("ignore", "")
 
@@ -269,7 +270,7 @@ func IsPhoneNumberAvailable(c *fiber.Ctx) error {
 		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.MissingRequiredParam, "Phone number is required.")
 	}
 
-	if available, err := services.IsPhoneNumberAvailable(&phoneNumber, ignore); err != nil {
+	if available, err := services.IsPhoneNumberAvailable(app, &phoneNumber, ignore); err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 	} else {
 		response := responses.Available{}
@@ -295,21 +296,28 @@ func CreateUser(c *fiber.Ctx) error {
 		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.Validator, util.ValidatorErrors(err))
 	}
 
+	// Check if app exists.
+	if available, err := services.IsAppAvailable(createUser.AppName); err != nil {
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
+	} else if !available {
+		return errorutil.Response(c, fiber.StatusBadRequest, errors.AppExists, "AppName does not exist.")
+	}
+
 	// Check if user already exists.
-	if available, err := services.IsUsernameAvailable(createUser.Username, ""); err != nil {
+	if available, err := services.IsUsernameAvailable(createUser.AppName, createUser.Username, ""); err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 	} else if !available {
 		return errorutil.Response(c, fiber.StatusBadRequest, errors.UsernameExists, "Username already exists.")
 	}
 
-	if available, err := services.IsEmailAvailable(createUser.Email, ""); err != nil {
+	if available, err := services.IsEmailAvailable(createUser.AppName, createUser.Email, ""); err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 	} else if !available {
 		return errorutil.Response(c, fiber.StatusBadRequest, errors.EmailExists, "Email already exists.")
 	}
 
 	if createUser.PhoneNumber != nil {
-		if available, err := services.IsPhoneNumberAvailable(createUser.PhoneNumber, ""); err != nil {
+		if available, err := services.IsPhoneNumberAvailable(createUser.AppName, createUser.PhoneNumber, ""); err != nil {
 			return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 		} else if !available {
 			return errorutil.Response(c, fiber.StatusBadRequest, errors.PhoneNumberExists, "Phone already exists.")
@@ -433,7 +441,7 @@ outer:
 
 	// Check if user already exists.
 	if requestUser.Username != user.Username {
-		if available, err := services.IsUsernameAvailable(requestUser.Username, ""); err != nil {
+		if available, err := services.IsUsernameAvailable(user.AppName, requestUser.Username, ""); err != nil {
 			return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 		} else if !available {
 			return errorutil.Response(c, fiber.StatusBadRequest, errors.UsernameExists, "Username already exists.")
@@ -441,7 +449,7 @@ outer:
 	}
 
 	if requestUser.Email != user.Email {
-		if available, err := services.IsEmailAvailable(requestUser.Email, ""); err != nil {
+		if available, err := services.IsEmailAvailable(user.AppName, requestUser.Email, ""); err != nil {
 			return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 		} else if !available {
 			return errorutil.Response(c, fiber.StatusBadRequest, errors.EmailExists, "Email already exists.")
@@ -449,7 +457,7 @@ outer:
 	}
 
 	if requestUser.PhoneNumber != nil && (user.PhoneNumber == nil || *requestUser.PhoneNumber != *user.PhoneNumber) {
-		if available, err := services.IsPhoneNumberAvailable(requestUser.PhoneNumber, ""); err != nil {
+		if available, err := services.IsPhoneNumberAvailable(user.AppName, requestUser.PhoneNumber, ""); err != nil {
 			return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 		} else if !available {
 			return errorutil.Response(c, fiber.StatusBadRequest, errors.PhoneNumberExists, "Phone already exists.")
@@ -499,19 +507,6 @@ func UpdateUserPassword(c *fiber.Ctx) error {
 		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.Validator, util.ValidatorErrors(err))
 	}
 
-	// Check if app exists.
-	if available, err := services.IsAppAvailable(requestPassword.App); err != nil {
-		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
-	} else if !available {
-		return errorutil.Response(c, fiber.StatusBadRequest, errors.AppExists, "AppName does not exist.")
-	}
-
-	// Check if app from request exists in the claims.
-	appKey := util.PascalCaseToCamelcase(requestPassword.App)
-	if _, ok := accessClaims.Apps[appKey]; !ok {
-		return errorutil.Response(c, fiber.StatusBadRequest, errors.AppUnknown, "App does not exist in claims.")
-	}
-
 	// Get the user.
 	user, err := services.GetUserByID(uint(accessClaims.Id))
 	if err != nil {
@@ -521,14 +516,14 @@ func UpdateUserPassword(c *fiber.Ctx) error {
 	}
 
 	// Check if the old password is correct.
-	if valid, err := services.IsPasswordCorrect(user.Username, requestPassword.OldPassword); err != nil {
+	if valid, err := services.IsPasswordCorrect(user.AppName, user.Username, requestPassword.OldPassword); err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 	} else if !valid {
 		return errorutil.Response(c, fiber.StatusBadRequest, errors.InvalidPassword, "Invalid password.")
 	}
 
 	// Update the user password.
-	if err := services.UpdateUserPassword(user.ID, requestPassword.App, requestPassword.NewPassword); err != nil {
+	if err := services.UpdateUserPassword(user.ID, user.AppName, requestPassword.NewPassword); err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 	}
 

@@ -4,6 +4,7 @@ import "api-auth/main/src/dto/responses"
 
 // CreateUser struct for creating a user request.
 type CreateUser struct {
+	AppName     string                `json:"appName" validate:"required"`
 	Username    string                `json:"username" validate:"required"`
 	Email       string                `json:"email" validate:"required,email"`
 	PhoneNumber *string               `json:"phoneNumber"`
