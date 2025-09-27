@@ -92,7 +92,7 @@ outer:
 			}
 		}
 	}
-	if !hasApp {
+	if !hasApp && user.AppName != accessClaims.App {
 		return errorutil.Response(c, fiber.StatusNotFound, errorutil.NotFound, "User does not have the specified app.")
 	}
 
@@ -435,7 +435,7 @@ outer:
 			}
 		}
 	}
-	if !hasApp {
+	if !hasApp && user.AppName != accessClaims.App {
 		return errorutil.Response(c, fiber.StatusNotFound, errorutil.NotFound, "User does not have the specified app.")
 	}
 
@@ -665,7 +665,7 @@ func RestoreUser(c *fiber.Ctx) error {
 			break
 		}
 	}
-	if !hasApp {
+	if !hasApp && user.AppName != accessClaims.App {
 		return errorutil.Response(c, fiber.StatusUnauthorized, errorutil.Unauthorized, "User does not have the specified app.")
 	}
 
@@ -733,7 +733,7 @@ func DeleteUser(c *fiber.Ctx) error {
 			break
 		}
 	}
-	if !hasApp {
+	if !hasApp && user.AppName != accessClaims.App {
 		return errorutil.Response(c, fiber.StatusUnauthorized, errorutil.Unauthorized, "User does not have the specified app.")
 	}
 
