@@ -76,11 +76,16 @@ func IsPhoneNumberAvailable(app string, phoneNumber *string, ignore string) (boo
 
 // IsUserActive method to check if a user is active.
 func IsUserActive(app, username string) (bool, error) {
-	if result := database.Pg.Limit(1).Find(&models.User{}, "app_name = ? AND (username = ? OR email = ?)", app, username, username); result.Error != nil {
+	var count int64
+	result := database.Pg.
+		Model(&models.User{}).
+		Joins("JOIN user_app_recipes ON user_app_recipes.user_id = users.id").
+		Where("(user_app_recipes.app_name = ? OR users.app_name = ?) AND (users.username = ? OR users.email = ?)", app, app, username, username).
+		Count(&count)
+	if result.Error != nil {
 		return false, result.Error
-	} else {
-		return result.RowsAffected == 1, nil
 	}
+	return count > 0, nil
 }
 
 // HasUserRecipe method to check if a user has a recipe.
@@ -103,8 +108,9 @@ func IsPasswordCorrect(app, username, password string) (bool, error) {
 
 	// Get the password from the user.
 	if result := database.Pg.Model(&models.User{}).
+		Joins("JOIN user_app_recipes ON user_app_recipes.user_id = users.id").
 		Select("password").
-		Where("app_name = ? AND (username = ? OR email = ?)", app, username, username).
+		Where("(user_app_recipes.app_name = ? OR users.app_name = ?) AND (users.username = ? OR users.email = ?)", app, app, username, username).
 		Find(&passwordHash); result.Error != nil {
 		return false, result.Error
 	}
@@ -212,8 +218,11 @@ func GetUserRecipesByUsername(app, username string) ([]string, error) {
 func GetUserByUsername(app, username string) (models.User, error) {
 	var user models.User
 
-	if result := database.Pg.Preload("AppRoles").
-		Find(&user, "app_name = ? AND username = ?", app, username); result.Error != nil {
+	if result := database.Pg.Model(&models.User{}).
+		Preload("AppRoles").
+		Joins("JOIN user_app_recipes ON user_app_recipes.user_id = users.id").
+		Where("(user_app_recipes.app_name = ? OR users.app_name = ?) AND username = ?", app, app, username).
+		Find(&user); result.Error != nil {
 		return user, result.Error
 	}
 
@@ -224,7 +233,11 @@ func GetUserByUsername(app, username string) (models.User, error) {
 func GetUserByEmail(app, email string) (models.User, error) {
 	var user models.User
 
-	if result := database.Pg.Find(&user, "app_name = ? AND email = ?", app, email); result.Error != nil {
+	if result := database.Pg.Model(&models.User{}).
+		Preload("AppRoles").
+		Joins("JOIN user_app_recipes ON user_app_recipes.user_id = users.id").
+		Where("(user_app_recipes.app_name = ? OR users.app_name = ?) AND email = ?", app, app, email).
+		Find(&user); result.Error != nil {
 		return user, result.Error
 	}
 
