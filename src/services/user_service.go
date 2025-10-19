@@ -270,7 +270,7 @@ func GetUsersLookup(appNames []string) ([]models.User, error) {
 	query := database.Pg.Model(&models.User{}).
 		Joins("JOIN user_app_recipes ON user_id = id").
 		Select("users.id, users.username, users.email").
-		Where("app_name IN ?", appNames)
+		Where("user_app_recipes.app_name IN ? OR users.app_name IN ?", appNames, appNames)
 
 	if result := query.Find(&users); result.Error != nil {
 		return nil, result.Error
@@ -394,6 +394,15 @@ func UpdateUser(user *models.User, requestUser *requests.UpdateUser, apps []stri
 	user.PhoneNumber = requestUser.PhoneNumber
 	user.UpdatedAt = time.Now().UTC()
 
+	// Check if user is SuperAdmin to bypass app filtering.
+	isSuperAdmin := false
+	for i := range user.AppRoles {
+		if user.AppRoles[i].RoleName == "SuperAdmin" && user.AppRoles[i].PermissionName == "Update" {
+			isSuperAdmin = true
+			break
+		}
+	}
+
 	// Create a map of roles and recipes to check for duplicates.
 	rolesMap := make(map[string]map[string]map[string]bool)
 	recipesMap := make(map[string]map[string]bool)
@@ -446,7 +455,7 @@ func UpdateUser(user *models.User, requestUser *requests.UpdateUser, apps []stri
 		// Insert the user roles.
 		user.AppRoles = protectedUserAppRoles
 		for i := range requestUser.Roles {
-			if len(apps) > 0 && !slices.Contains(apps, requestUser.Roles[i].App) {
+			if !isSuperAdmin && len(apps) > 0 && !slices.Contains(apps, requestUser.Roles[i].App) {
 				continue
 			}
 			userAppRolePermission := models.UserAppRolePermission{
