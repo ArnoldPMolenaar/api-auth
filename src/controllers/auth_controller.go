@@ -302,6 +302,15 @@ func UpdateUserIdentityApp(c *fiber.Ctx) error {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.CacheError, err)
 	}
 
+	// Update the refresh token app if it exists.
+	if isUsed, err := services.IsRefreshTokenUsed(uint(accessClaims.Id), oldApp, accessClaims.DeviceID); err != nil {
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err)
+	} else if isUsed {
+		if err = services.UpdateRefreshTokenApp(uint(accessClaims.Id), oldApp, accessClaims.DeviceID, request.App); err != nil {
+			return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err)
+		}
+	}
+
 	// Create a token response.
 	response := &responses.Token{}
 	response.Token = jwt

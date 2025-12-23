@@ -517,6 +517,25 @@ func UpdateUserSignedIn(user *models.User, requestUser *requests.UpdateUserSigne
 	return user, nil
 }
 
+// UpdateRefreshTokenApp method to update the app name of a refresh token.
+func UpdateRefreshTokenApp(userID uint, oldApp, deviceID, newApp string) error {
+	if isUsed, err := IsRefreshTokenUsed(userID, newApp, deviceID); err != nil {
+		return err
+	} else if isUsed {
+		if err := DeleteRefreshToken(newApp, deviceID, userID); err != nil {
+			return err
+		}
+	}
+
+	if result := database.Pg.Model(&models.UserAppRefreshToken{}).
+		Where("user_id = ? AND app_name = ? AND device_id = ?", userID, oldApp, deviceID).
+		Update("app_name", newApp); result.Error != nil {
+		return result.Error
+	}
+
+	return nil
+}
+
 // UpdateUserPassword method to update the user password.
 func UpdateUserPassword(userID uint, app, password string) error {
 	hashedPassword, err := PasswordHash(password)
