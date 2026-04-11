@@ -17,7 +17,7 @@ RUN go install github.com/air-verse/air@v1.61.1
 # Copy everything from the current directory to the Working Directory inside the container
 COPY ./ /app
 
-EXPOSE 5000
+EXPOSE 5001
 
 # Run the app
 CMD ["air"]

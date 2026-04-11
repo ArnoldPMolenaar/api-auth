@@ -21,7 +21,7 @@ FROM scratch
 # Copy binary and config files from /build to root folder of scratch container.
 COPY --from=builder ["/build/api", "/build/.env", "/"]
 
-EXPOSE 5000
+EXPOSE 5001
 
 # Command to run when starting the container.
 ENTRYPOINT ["/api"]
