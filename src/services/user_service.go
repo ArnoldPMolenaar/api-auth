@@ -94,7 +94,7 @@ func HasUserRecipe(app, username string, recipe enums.Recipe) (bool, error) {
 
 	if result := database.Pg.Model(&models.User{}).
 		Joins("JOIN user_app_recipes ON user_app_recipes.user_id = users.id").
-		Where("username = ? AND recipe_name = ? AND user_app_recipes.app_name = ?", username, recipe, app).
+		Where("(username = ? OR email = ?) AND recipe_name = ? AND user_app_recipes.app_name = ?", username, username, recipe, app).
 		Count(&count); result.Error != nil {
 		return false, result.Error
 	}

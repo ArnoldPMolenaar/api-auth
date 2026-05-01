@@ -123,6 +123,15 @@ func UsernamePasswordSignIn(c *fiber.Ctx) error {
 	if err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err)
 	}
+	if user.ID == 0 {
+		user, err = services.GetUserByEmail(signIn.App, signIn.Username)
+		if err != nil {
+			return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err)
+		}
+	}
+	if user.ID == 0 {
+		return errorutil.Response(c, fiber.StatusNotFound, errorutil.NotFound, "Logged in user not found.")
+	}
 
 	// Generate a new access token.
 	accessToken, exp, err := services.TokenCreate(
