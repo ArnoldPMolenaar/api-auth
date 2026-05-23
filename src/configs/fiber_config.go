@@ -2,7 +2,7 @@ package configs
 
 import (
 	"github.com/ArnoldPMolenaar/api-utils/utils"
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"os"
 	"strconv"
 	"time"

@@ -3,7 +3,8 @@ package routes
 import (
 	"api-auth/main/src/controllers"
 	"api-auth/main/src/middleware"
-	"github.com/gofiber/fiber/v2"
+
+	"github.com/gofiber/fiber/v3"
 )
 
 // PasswordRoutes func for describe group of private routes.
@@ -14,6 +15,6 @@ func PasswordRoutes(a *fiber.App) {
 	// Register a route for GET /v1/token/password/verify.
 	route.Get("/verify", middleware.PasswordProtected(), controllers.TokenPasswordResetVerify)
 
-	// Register a route for PUT /v1/token/password/reset.
-	route.Put("/reset", middleware.PasswordProtected(), controllers.UpdateUserPasswordReset)
+	// Register a route for POST /v1/token/password/reset.
+	route.Post("/reset", middleware.PasswordProtected(), controllers.UpdateUserPasswordReset)
 }

@@ -3,6 +3,8 @@ package responses
 import (
 	"api-auth/main/src/models"
 	"time"
+
+	"github.com/ArnoldPMolenaar/api-utils/utils"
 )
 
 type PaginatedUser struct {
@@ -20,7 +22,7 @@ func (u *PaginatedUser) SetPaginatedUser(user *models.User) {
 	u.ID = user.ID
 	u.Username = user.Username
 	u.Email = user.Email
-	u.PhoneNumber = user.PhoneNumber
+	u.PhoneNumber = utils.PtrFromNullString(user.PhoneNumber)
 	u.CreatedAt = user.CreatedAt
 	u.UpdatedAt = user.UpdatedAt
 	u.DeletedAt = func() *time.Time {

@@ -10,9 +10,23 @@ import (
 	"slices"
 	"time"
 
+	"github.com/ArnoldPMolenaar/api-utils/pagination"
+	"github.com/ArnoldPMolenaar/api-utils/utils"
 	"github.com/google/uuid"
+	"github.com/valyala/fasthttp"
 	"gorm.io/gorm"
 )
+
+var allowedUserColumns = map[string]bool{
+	"id":           true,
+	"username":     true,
+	"email":        true,
+	"phone_number": true,
+	"app_name":     true,
+	"created_at":   true,
+	"updated_at":   true,
+	"deleted_at":   true,
+}
 
 // IsUsernameAvailable method to check if a username is available.
 func IsUsernameAvailable(app, username, ignore string) (bool, error) {
@@ -147,6 +161,47 @@ func IsRefreshTokenUsed(userID uint, app, deviceID string) (bool, error) {
 	return count > 0, nil
 }
 
+// GetUsers method to get paginated users with optional app scope filtering.
+func GetUsers(values *fasthttp.Args, page, limit int, appNames []string) (pagination.Model, error) {
+	users := make([]models.User, 0)
+	queryFunc := pagination.Query(values, allowedUserColumns)
+	sortFunc := pagination.Sort(values, allowedUserColumns)
+	offset := pagination.Offset(page, limit)
+
+	dbResult := database.Pg.Scopes(queryFunc, sortFunc).
+		Limit(limit).
+		Offset(offset)
+
+	total := int64(0)
+	dbCount := database.Pg.Scopes(queryFunc).
+		Model(&models.User{})
+
+	if len(appNames) > 0 {
+		dbResult = dbResult.Joins("JOIN user_app_recipes ON user_id = id").Where("user_app_recipes.app_name IN ?", appNames)
+		dbCount = dbCount.Joins("JOIN user_app_recipes ON user_id = id").Where("user_app_recipes.app_name IN ?", appNames)
+	}
+
+	if result := dbResult.Find(&users); result.Error != nil {
+		return pagination.Model{}, result.Error
+	}
+
+	if result := dbCount.Count(&total); result.Error != nil {
+		return pagination.Model{}, result.Error
+	}
+
+	pageCount := pagination.Count(int(total), limit)
+	paginatedUsers := make([]responses.PaginatedUser, 0, len(users))
+	for i := range users {
+		paginatedUser := responses.PaginatedUser{}
+		paginatedUser.SetPaginatedUser(&users[i])
+		paginatedUsers = append(paginatedUsers, paginatedUser)
+	}
+
+	paginationModel := pagination.CreatePaginationModel(limit, page, pageCount, int(total), paginatedUsers)
+
+	return paginationModel, nil
+}
+
 // SignUp method to create a new user.
 func SignUp(signUp *requests.SignUp) (responses.SignUp, error) {
 	var err error
@@ -171,7 +226,7 @@ func SignUp(signUp *requests.SignUp) (responses.SignUp, error) {
 		AppName:        signUp.AppName,
 		Username:       signUp.Username,
 		Email:          signUp.Email,
-		PhoneNumber:    signUp.PhoneNumber,
+		PhoneNumber:    utils.NewNullString(signUp.PhoneNumber),
 		Password:       hashedPassword,
 		IsTempPassword: isTempPassword,
 	}
@@ -339,7 +394,7 @@ func CreateUser(request *requests.CreateUser) (responses.CreateUser, error) {
 		AppName:        request.AppName,
 		Username:       request.Username,
 		Email:          request.Email,
-		PhoneNumber:    request.PhoneNumber,
+		PhoneNumber:    utils.NewNullString(request.PhoneNumber),
 		Password:       hashedPassword,
 		IsTempPassword: isTempPassword,
 	}
@@ -385,13 +440,13 @@ func UpdateUser(user *models.User, requestUser *requests.UpdateUser, apps []stri
 	if requestUser.Email != user.Email {
 		user.EmailVerifiedAt = sql.NullTime{}
 	}
-	if requestUser.PhoneNumber != user.PhoneNumber {
+	if (requestUser.PhoneNumber == nil && user.PhoneNumber.Valid) || (*requestUser.PhoneNumber != user.PhoneNumber.String) {
 		user.PhoneVerifiedAt = sql.NullTime{}
 	}
 
 	user.Username = requestUser.Username
 	user.Email = requestUser.Email
-	user.PhoneNumber = requestUser.PhoneNumber
+	user.PhoneNumber = utils.NewNullString(requestUser.PhoneNumber)
 	user.UpdatedAt = time.Now().UTC()
 
 	// Check if user is SuperAdmin to bypass app filtering.
@@ -501,13 +556,13 @@ func UpdateUserSignedIn(user *models.User, requestUser *requests.UpdateUserSigne
 	if requestUser.Email != user.Email {
 		user.EmailVerifiedAt = sql.NullTime{}
 	}
-	if requestUser.PhoneNumber != user.PhoneNumber {
+	if (requestUser.PhoneNumber == nil && user.PhoneNumber.Valid) || (*requestUser.PhoneNumber != user.PhoneNumber.String) {
 		user.PhoneVerifiedAt = sql.NullTime{}
 	}
 
 	user.Username = requestUser.Username
 	user.Email = requestUser.Email
-	user.PhoneNumber = requestUser.PhoneNumber
+	user.PhoneNumber = utils.NewNullString(requestUser.PhoneNumber)
 	user.UpdatedAt = time.Now().UTC()
 
 	if err := database.Pg.Save(&user).Error; err != nil {

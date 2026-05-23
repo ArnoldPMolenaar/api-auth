@@ -6,17 +6,18 @@ import (
 	errorint "api-auth/main/src/errors"
 	"api-auth/main/src/services"
 	"errors"
-	errorsutil "github.com/ArnoldPMolenaar/api-utils/errors"
-	util "github.com/ArnoldPMolenaar/api-utils/utils"
-	"github.com/gofiber/fiber/v2"
 	"strings"
 	"time"
+
+	errorsutil "github.com/ArnoldPMolenaar/api-utils/errors"
+	"github.com/ArnoldPMolenaar/api-utils/utils"
+	"github.com/gofiber/fiber/v3"
 )
 
 // JWTProtected middleware checks if the access token is valid.
 // Also checks if the user is not blocked.
-func JWTProtected() func(*fiber.Ctx) error {
-	return func(c *fiber.Ctx) error {
+func JWTProtected() fiber.Handler {
+	return func(c fiber.Ctx) error {
 		// Get the token from the header.
 		accessToken, err := getTokenFromHeader(c)
 		if err != nil {
@@ -102,7 +103,7 @@ func JWTProtected() func(*fiber.Ctx) error {
 		}
 
 		// Check for blocked permission
-		appName := util.PascalCaseToCamelcase(accessClaims.App)
+		appName := utils.PascalCaseToCamelcase(accessClaims.App)
 		if accessClaims.Apps[appName]["blocked"] != nil {
 			return errorsutil.Response(
 				c,
@@ -121,7 +122,7 @@ func JWTProtected() func(*fiber.Ctx) error {
 
 // getTokenFromHeader function to get the token from the header.
 // Also validates the token format.
-func getTokenFromHeader(c *fiber.Ctx) (string, error) {
+func getTokenFromHeader(c fiber.Ctx) (string, error) {
 	headerValue := c.Get("Authorization")
 	if headerValue == "" {
 		return "", nil

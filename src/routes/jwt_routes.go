@@ -4,7 +4,7 @@ import (
 	"api-auth/main/src/controllers"
 	"api-auth/main/src/middleware"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 )
 
 // JwtRoutes func for describe group of private routes.
@@ -24,15 +24,15 @@ func JwtRoutes(a *fiber.App) {
 
 	// Register routes for the logged-in user.
 	route.Get("/user", middleware.JWTProtected(), controllers.GetSignedInUser)
-	route.Put("/user", middleware.JWTProtected(), controllers.UpdateSignedInUser)
-	route.Put("/user/password", middleware.JWTProtected(), controllers.UpdateUserPassword)
+	route.Patch("/user", middleware.JWTProtected(), controllers.UpdateSignedInUser)
+	route.Patch("/user/password", middleware.JWTProtected(), controllers.UpdateUserPassword)
 
 	// Register routes for the user CRUD.
 	route.Get("/users", middleware.JWTProtected(), controllers.GetUsers)
 	route.Post("/users", middleware.JWTProtected(), controllers.CreateUser)
 	route.Get("/users/lookup", middleware.JWTProtected(), controllers.GetUsersLookup)
 	route.Get("/users/:id", middleware.JWTProtected(), controllers.GetUser)
-	route.Put("/users/:id", middleware.JWTProtected(), controllers.UpdateUser)
+	route.Patch("/users/:id", middleware.JWTProtected(), controllers.UpdateUser)
 	route.Delete("/users/:id", middleware.JWTProtected(), controllers.DeleteUser)
-	route.Put("/users/:id/restore", middleware.JWTProtected(), controllers.RestoreUser)
+	route.Post("/users/:id/restore", middleware.JWTProtected(), controllers.RestoreUser)
 }

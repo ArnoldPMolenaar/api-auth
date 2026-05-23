@@ -14,6 +14,16 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     network_mode: "host"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "[ \"$(wget -qS --spider http://127.0.0.1:5001/health 2>&1 | awk '/HTTP\\//{code=$2} END{print code}')\" = \"204\" ]",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
     command: ["air"]
   prod:
     hostname: api_auth_prod
@@ -29,6 +39,24 @@ services:
       - "host.docker.internal:host-gateway"
     network_mode: "host"
     command: ["/api"]
+  prod_probe:
+    image: curlimages/curl:8.16.0
+    container_name: api_auth_prod_probe
+    network_mode: "host"
+    profiles: ["local"]
+    depends_on:
+      - prod
+    command: ["sh", "-c", "sleep infinity"]
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "code=$$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:5001/health); [ \"$$code\" = \"204\" ]",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
   valkey:
     container_name: api_auth_valkey
     hostname: api_auth_valkey

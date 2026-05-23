@@ -1,6 +1,10 @@
 package responses
 
-import "api-auth/main/src/models"
+import (
+	"api-auth/main/src/models"
+
+	"github.com/ArnoldPMolenaar/api-utils/utils"
+)
 
 // SignUp struct for username password signup response.
 type SignUp struct {
@@ -17,7 +21,7 @@ func (u *SignUp) SetSignUp(user *models.User) {
 	u.ID = user.ID
 	u.Username = user.Username
 	u.Email = user.Email
-	u.PhoneNumber = user.PhoneNumber
+	u.PhoneNumber = utils.PtrFromNullString(user.PhoneNumber)
 	u.Recipes = []AppRecipe{}
 
 	// Set user recipes.

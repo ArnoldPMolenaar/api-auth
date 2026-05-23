@@ -8,12 +8,12 @@ import (
 	"time"
 
 	errorsutil "github.com/ArnoldPMolenaar/api-utils/errors"
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 )
 
 // EmailProtected middleware checks if the email verification token is valid.
-func EmailProtected() func(*fiber.Ctx) error {
-	return func(c *fiber.Ctx) error {
+func EmailProtected() fiber.Handler {
+	return func(c fiber.Ctx) error {
 		// Get the token from the header.
 		emailToken, err := getTokenFromHeader(c)
 		if err != nil {

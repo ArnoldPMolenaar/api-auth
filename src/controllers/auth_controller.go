@@ -1,7 +1,6 @@
 package controllers
 
 import (
-	"api-auth/main/src/claims"
 	"api-auth/main/src/dto/requests"
 	"api-auth/main/src/dto/responses"
 	"api-auth/main/src/enums"
@@ -12,16 +11,16 @@ import (
 
 	errorutil "github.com/ArnoldPMolenaar/api-utils/errors"
 	"github.com/ArnoldPMolenaar/api-utils/utils"
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 )
 
 // SignUp method to create a new user.
-func SignUp(c *fiber.Ctx) error {
+func SignUp(c fiber.Ctx) error {
 	// Create a new user auth struct.
 	signUp := &requests.SignUp{}
 
 	// Check, if received JSON data is parsed.
-	if err := c.BodyParser(signUp); err != nil {
+	if err := c.Bind().Body(signUp); err != nil {
 		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.BodyParse, err.Error())
 	}
 
@@ -75,12 +74,13 @@ func SignUp(c *fiber.Ctx) error {
 	}
 }
 
-func UsernamePasswordSignIn(c *fiber.Ctx) error {
+// UsernamePasswordSignIn endpoint to login with a password.
+func UsernamePasswordSignIn(c fiber.Ctx) error {
 	// Create a new user auth struct.
 	signIn := &requests.UsernamePasswordSignIn{}
 
 	// Check, if received JSON data is parsed.
-	if err := c.BodyParser(signIn); err != nil {
+	if err := c.Bind().Body(signIn); err != nil {
 		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.BodyParse, err.Error())
 	}
 
@@ -161,50 +161,41 @@ func UsernamePasswordSignIn(c *fiber.Ctx) error {
 }
 
 // GetSignedInUser read the header key Authorization and gives the signed-in user.
-func GetSignedInUser(c *fiber.Ctx) error {
+func GetSignedInUser(c fiber.Ctx) error {
 	// Get userID from claims.
 	authHeader := c.Get("Authorization")
-	claim := c.Locals("claims")
-	if claim == nil {
-		return errorutil.Response(c, fiber.StatusUnauthorized, errorutil.Unauthorized, "Claims not found.")
-	}
-
-	accessClaims, ok := claim.(*claims.AccessClaims)
-	if !ok {
-		return errorutil.Response(c, fiber.StatusUnauthorized, errorutil.Unauthorized, "Invalid claims type.")
+	accessClaims, err := accessClaimsFromContext(c)
+	if err != nil {
+		return err
 	}
 
 	// Get the user.
-	user, err := services.GetUserByID(uint(accessClaims.Id))
+	user, err := getUserByIDOrResponse(c, uint(accessClaims.Id))
 	if err != nil {
-		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err)
+		return err
 	}
 
 	// Create a new response.
 	response := &responses.UsernamePasswordSignIn{}
-	response.SetUsernamePasswordSignIn(&user, authHeader, accessClaims.ExpiresAt)
+	response.SetUsernamePasswordSignIn(user, authHeader, accessClaims.ExpiresAt)
 
 	return c.JSON(response)
 }
 
 // UpdateSignedInUser method to update the user that is signed in.
-func UpdateSignedInUser(c *fiber.Ctx) error {
+func UpdateSignedInUser(c fiber.Ctx) error {
 	// Create a new user auth struct.
 	request := &requests.UpdateUserSignedIn{}
 
 	// Get userID from claims.
-	claim := c.Locals("claims")
-	if claim == nil {
-		return errorutil.Response(c, fiber.StatusUnauthorized, errorutil.Unauthorized, "Claims not found.")
-	}
-	accessClaims, ok := claim.(*claims.AccessClaims)
-	if !ok {
-		return errorutil.Response(c, fiber.StatusUnauthorized, errorutil.Unauthorized, "Invalid claims type.")
+	accessClaims, err := accessClaimsFromContext(c)
+	if err != nil {
+		return err
 	}
 	userID := accessClaims.Id
 
 	// Get the request body.
-	if err := c.BodyParser(request); err != nil {
+	if err := c.Bind().Body(request); err != nil {
 		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.BodyParse, "Invalid request body.")
 	}
 
@@ -215,11 +206,9 @@ func UpdateSignedInUser(c *fiber.Ctx) error {
 	}
 
 	// Get the user.
-	user, err := services.GetUserByID(uint(userID))
+	user, err := getUserByIDOrResponse(c, uint(userID))
 	if err != nil {
-		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
-	} else if user.ID == 0 {
-		return errorutil.Response(c, fiber.StatusNotFound, errorutil.NotFound, "User not found.")
+		return err
 	}
 
 	// Check if user already exists.
@@ -239,7 +228,7 @@ func UpdateSignedInUser(c *fiber.Ctx) error {
 		}
 	}
 
-	if request.PhoneNumber != nil && (user.PhoneNumber == nil || *request.PhoneNumber != *user.PhoneNumber) {
+	if request.PhoneNumber != nil && *request.PhoneNumber != user.PhoneNumber.String {
 		if available, err := services.IsPhoneNumberAvailable(user.AppName, request.PhoneNumber, ""); err != nil {
 			return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 		} else if !available {
@@ -248,7 +237,7 @@ func UpdateSignedInUser(c *fiber.Ctx) error {
 	}
 
 	// Update the user.
-	updatedUser, err := services.UpdateUserSignedIn(&user, request)
+	updatedUser, err := services.UpdateUserSignedIn(user, request)
 	if err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 	}
@@ -261,12 +250,12 @@ func UpdateSignedInUser(c *fiber.Ctx) error {
 }
 
 // UpdateUserIdentityApp method to update the user session app.
-func UpdateUserIdentityApp(c *fiber.Ctx) error {
+func UpdateUserIdentityApp(c fiber.Ctx) error {
 	// Create a new user auth struct.
 	request := &requests.UpdateUserIdentityApp{}
 
 	// Check, if received JSON data is parsed.
-	if err := c.BodyParser(request); err != nil {
+	if err := c.Bind().Body(request); err != nil {
 		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.BodyParse, err.Error())
 	}
 
@@ -277,14 +266,9 @@ func UpdateUserIdentityApp(c *fiber.Ctx) error {
 	}
 
 	// Get identity from claims.
-	claim := c.Locals("claims")
-	if claim == nil {
-		return errorutil.Response(c, fiber.StatusUnauthorized, errorutil.Unauthorized, "Claims not found.")
-	}
-
-	accessClaims, ok := claim.(*claims.AccessClaims)
-	if !ok {
-		return errorutil.Response(c, fiber.StatusUnauthorized, errorutil.Unauthorized, "Invalid claims type.")
+	accessClaims, err := accessClaimsFromContext(c)
+	if err != nil {
+		return err
 	}
 
 	// Check if app from request exists in the claims.
@@ -330,25 +314,20 @@ func UpdateUserIdentityApp(c *fiber.Ctx) error {
 
 // Token method to create a new access token and invalidate the old one.
 // Used to refresh the session.
-func Token(c *fiber.Ctx) error {
+func Token(c fiber.Ctx) error {
 	// Get deviceID from query.
 	deviceID := c.Query("deviceId")
 
 	// Get app and userID from claims.
-	claim := c.Locals("claims")
-	if claim == nil {
-		return errorutil.Response(c, fiber.StatusUnauthorized, errorutil.Unauthorized, "Claims not found.")
-	}
-
-	accessClaims, ok := claim.(*claims.AccessClaims)
-	if !ok {
-		return errorutil.Response(c, fiber.StatusUnauthorized, errorutil.Unauthorized, "Invalid claims type.")
+	accessClaims, err := accessClaimsFromContext(c)
+	if err != nil {
+		return err
 	}
 
 	// Get the user.
-	user, err := services.GetUserByID(uint(accessClaims.Id))
+	user, err := getUserByIDOrResponse(c, uint(accessClaims.Id))
 	if err != nil {
-		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err)
+		return err
 	}
 
 	// Generate a new refresh token.
@@ -366,7 +345,7 @@ func Token(c *fiber.Ctx) error {
 
 	// Generate a new access token.
 	accessToken, exp, err := services.TokenCreate(
-		services.TokenCreateAccessClaim(&user, accessClaims.App, accessClaims.DeviceID),
+		services.TokenCreateAccessClaim(user, accessClaims.App, accessClaims.DeviceID),
 		services.TokenAccessExpireMinutes,
 		time.Minute,
 		enums.Access)
@@ -393,7 +372,7 @@ func Token(c *fiber.Ctx) error {
 }
 
 // CreateRefreshToken method to create a new refresh token.
-func CreateRefreshToken(c *fiber.Ctx) error {
+func CreateRefreshToken(c fiber.Ctx) error {
 	// Get deviceID from query.
 	deviceID := c.Query("deviceId")
 	if deviceID == "" {
@@ -401,14 +380,9 @@ func CreateRefreshToken(c *fiber.Ctx) error {
 	}
 
 	// Get app and userID from claims.
-	claim := c.Locals("claims")
-	if claim == nil {
-		return errorutil.Response(c, fiber.StatusUnauthorized, errorutil.Unauthorized, "Claims not found.")
-	}
-
-	accessClaims, ok := claim.(*claims.AccessClaims)
-	if !ok {
-		return errorutil.Response(c, fiber.StatusUnauthorized, errorutil.Unauthorized, "Invalid claims type.")
+	accessClaims, err := accessClaimsFromContext(c)
+	if err != nil {
+		return err
 	}
 
 	// Generate a new refresh token.
@@ -427,12 +401,12 @@ func CreateRefreshToken(c *fiber.Ctx) error {
 // RefreshToken method to refresh the access token.
 // This endpoint is unsecured. So we don't rotate the refresh token.
 // When the refresh-token is used on this endpoint, the refresh-token is deleted.
-func RefreshToken(c *fiber.Ctx) error {
+func RefreshToken(c fiber.Ctx) error {
 	// Create a new refresh token struct.
 	token := &requests.RefreshToken{}
 
 	// Check, if received JSON data is parsed.
-	if err := c.BodyParser(token); err != nil {
+	if err := c.Bind().Body(token); err != nil {
 		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.BodyParse, err.Error())
 	}
 
@@ -455,9 +429,9 @@ func RefreshToken(c *fiber.Ctx) error {
 	}
 
 	// Get the user.
-	user, err := services.GetUserByID(token.UserID)
+	user, err := getUserByIDOrResponse(c, token.UserID)
 	if err != nil {
-		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err)
+		return err
 	}
 
 	// Delete the refresh token.
@@ -466,7 +440,7 @@ func RefreshToken(c *fiber.Ctx) error {
 	}
 
 	// Generate a new access token.
-	accessToken, exp, err := services.TokenCreate(services.TokenCreateAccessClaim(&user, token.App, token.DeviceID),
+	accessToken, exp, err := services.TokenCreate(services.TokenCreateAccessClaim(user, token.App, token.DeviceID),
 		services.TokenAccessExpireMinutes,
 		time.Minute,
 		enums.Access)
@@ -487,7 +461,7 @@ func RefreshToken(c *fiber.Ctx) error {
 	// Create a new response.
 	// The refresh-token endpoint has the same behavior as a clean sign-in.
 	response := &responses.UsernamePasswordSignIn{}
-	response.SetUsernamePasswordSignIn(&user, accessToken, exp)
+	response.SetUsernamePasswordSignIn(user, accessToken, exp)
 
 	return c.JSON(response)
 }
@@ -496,18 +470,18 @@ func RefreshToken(c *fiber.Ctx) error {
 // This endpoint is empty, because the middleware already verified the token.
 // It is only used to validate the active cache session.
 // This endpoint needs to be empty and very fast.
-func TokenVerify(c *fiber.Ctx) error {
+func TokenVerify(c fiber.Ctx) error {
 	return c.SendStatus(fiber.StatusNoContent)
 }
 
 // SignOut method to sign out the user.
 // Also deletes the refresh-token because of explicit sign-out.
-func SignOut(c *fiber.Ctx) error {
+func SignOut(c fiber.Ctx) error {
 	// Create a new signOut request.
 	signOut := &requests.SignOut{}
 
 	// Check, if received JSON data is parsed.
-	if err := c.BodyParser(signOut); err != nil {
+	if err := c.Bind().Body(signOut); err != nil {
 		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.BodyParse, err.Error())
 	}
 
@@ -518,14 +492,9 @@ func SignOut(c *fiber.Ctx) error {
 	}
 
 	// Get app and userID from claims.
-	claim := c.Locals("claims")
-	if claim == nil {
-		return errorutil.Response(c, fiber.StatusUnauthorized, errorutil.Unauthorized, "Claims not found.")
-	}
-
-	accessClaims, ok := claim.(*claims.AccessClaims)
-	if !ok {
-		return errorutil.Response(c, fiber.StatusUnauthorized, errorutil.Unauthorized, "Invalid claims type.")
+	accessClaims, err := accessClaimsFromContext(c)
+	if err != nil {
+		return err
 	}
 
 	// Delete the refresh token.
@@ -542,12 +511,12 @@ func SignOut(c *fiber.Ctx) error {
 }
 
 // TokenPasswordReset method to create a new password reset token.
-func TokenPasswordReset(c *fiber.Ctx) error {
+func TokenPasswordReset(c fiber.Ctx) error {
 	// Create a new password reset struct.
 	token := &requests.PasswordReset{}
 
 	// Check, if received JSON data is parsed.
-	if err := c.BodyParser(token); err != nil {
+	if err := c.Bind().Body(token); err != nil {
 		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.BodyParse, err.Error())
 	}
 
@@ -594,17 +563,17 @@ func TokenPasswordReset(c *fiber.Ctx) error {
 // This endpoint is empty, because the middleware already verified the token.
 // It is only used to validate the active password reset.
 // This endpoint needs to be empty and very fast.
-func TokenPasswordResetVerify(c *fiber.Ctx) error {
+func TokenPasswordResetVerify(c fiber.Ctx) error {
 	return c.SendStatus(fiber.StatusNoContent)
 }
 
 // TokenEmailVerification method to create a new email verification token.
-func TokenEmailVerification(c *fiber.Ctx) error {
+func TokenEmailVerification(c fiber.Ctx) error {
 	// Create a new emailVerification request.
 	emailVerification := &requests.EmailVerification{}
 
 	// Check, if received JSON data is parsed.
-	if err := c.BodyParser(emailVerification); err != nil {
+	if err := c.Bind().Body(emailVerification); err != nil {
 		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.BodyParse, err.Error())
 	}
 
@@ -615,22 +584,15 @@ func TokenEmailVerification(c *fiber.Ctx) error {
 	}
 
 	// Get app and userID from claims.
-	claim := c.Locals("claims")
-	if claim == nil {
-		return errorutil.Response(c, fiber.StatusUnauthorized, errorutil.Unauthorized, "Claims not found.")
-	}
-
-	accessClaims, ok := claim.(*claims.AccessClaims)
-	if !ok {
-		return errorutil.Response(c, fiber.StatusUnauthorized, errorutil.Unauthorized, "Invalid claims type.")
+	accessClaims, err := accessClaimsFromContext(c)
+	if err != nil {
+		return err
 	}
 
 	// Get the user.
-	user, err := services.GetUserByID(uint(accessClaims.Id))
+	user, err := getUserByIDOrResponse(c, uint(accessClaims.Id))
 	if err != nil {
-		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err)
-	} else if user.ID == 0 {
-		return errorutil.Response(c, fiber.StatusNotFound, errorutil.NotFound, "User not found.")
+		return err
 	}
 
 	// Generate a new email verification token.
@@ -659,6 +621,6 @@ func TokenEmailVerification(c *fiber.Ctx) error {
 // This endpoint is empty, because the middleware already verified the token.
 // It is only used to validate the active email verification.
 // This endpoint needs to be empty and very fast.
-func TokenEmailVerificationVerify(c *fiber.Ctx) error {
+func TokenEmailVerificationVerify(c fiber.Ctx) error {
 	return c.SendStatus(fiber.StatusNoContent)
 }

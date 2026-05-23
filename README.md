@@ -21,73 +21,57 @@ This is an Authentication API built with Go and Fiber. It supports user sign-in,
 - Docker
 - Docker Compose
 
-### 🛠️ Installation
+### Run (Docker)
 
-1. Clone the repository:
+```bash
+git clone https://github.com/ArnoldPMolenaar/api-auth.git
+cd api-auth
+docker-compose up dev --build
+```
 
-    ```bash
-    git clone https://github.com/ArnoldPMolenaar/api-auth.git
-    cd api-auth
-    ```
+API default: `http://localhost:5001`
 
-2. Build and run the Docker containers:
+## API Routes
 
-    ```bash
-    docker-compose up dev --build
-    ```
+### Machine-protected routes
 
-3. The API will be available at `http://localhost:5001`.
+- `POST /v1/apps`
+- `POST /v1/sign-up`
+- `POST /v1/refresh-token`
+- `GET /v1/user/recipes`
+- `GET /v1/user/username/available`
+- `GET /v1/user/email/available`
+- `GET /v1/user/phone-number/available`
+- `POST /v1/username-password/sign-in`
+- `POST /v1/token/password`
 
-## 🧑‍💻 API Endpoints
+### JWT-protected routes
 
-### User Authentication
+- `GET /v1/token`
+- `GET /v1/token/verify`
+- `GET /v1/token/refresh`
+- `POST /v1/token/email`
+- `POST /v1/token/app`
+- `POST /v1/sign-out`
+- `GET /v1/user`
+- `PATCH /v1/user`
+- `PATCH /v1/user/password`
+- `GET /v1/users`
+- `POST /v1/users`
+- `GET /v1/users/lookup`
+- `GET /v1/users/:id`
+- `PATCH /v1/users/:id`
+- `DELETE /v1/users/:id`
+- `POST /v1/users/:id/restore`
 
-### App
-- **App**: `POST /v1/apps`
-    - Create a new app.
-    - Request body: `{ "name": "app" }`
+### Password token routes
 
-- **Sign-Up**: `POST /v1/sign-up`
-    - Register a new user.
-    - Request body: `{ "username": "user", "email": "user@example.com", "password": "password" }`
+- `GET /v1/token/password/verify`
+- `POST /v1/token/password/reset`
 
-- **Sign-In**: `POST /v1/username-password/sign-in`
-    - Authenticate a user with username and password.
-    - Request body: `{ "username": "user", "password": "password" }`
-
-  - **Create Refresh Token**: `GET /v1/token/refresh`
-    - Get a new refresh token. that registered on that device.
-    - Request body: `{ "deviceId": "device_id" }`
-
-- **Refresh Token**: `POST /v1/refresh-token`
-    - Refresh the user session with a refresh token.
-    - Request body: `{ "refreshToken": "token" }`
-
-### Password Management
-
-- **Password Reset**: `POST /v1/token/password`
-    - Reset the user password.
-    - Request body: `{ "email": "user@example.com" }`
-
-### Email Verification
-
-- **Verify Email**: `POST /v1/verify-email`
-    - Verify the user's email address.
-    - Request body: `{ "userId": 1, "email": "user@example.com" }`
-
-### User Management
-
-- **Get User Recipes**: `GET /v1/user/recipes`
-    - Get recipes associated with the user.
-    - Request parameters: `username`
-
-- **Update User**: `PUT /v1/user`
-    - Update user information.
-    - Request body: `{ "username": "newuser", "email": "newuser@example.com", "phone_number": "1234567890" }`
-
-- **Delete User**: `DELETE /v1/user`
-    - Delete a user.
-    - Request parameters: `userId`
+### Email token routes
+- `GET /v1/token/email/verify`
+- `POST /v1/token/email/verification`
 
 ## 🤝 Contributing
 

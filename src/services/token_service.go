@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/ArnoldPMolenaar/api-utils/utils"
-	"github.com/gofiber/fiber/v2/log"
+	"github.com/gofiber/fiber/v3/log"
 	"github.com/golang-jwt/jwt/v5"
 )
 
@@ -23,8 +23,8 @@ var TokenPasswordResetExpireMinutes int
 var TokenEmailVerificationExpireHours int
 var TokenSecretKey string
 
-// Initialise the environment variables needed to create tokens.
-// If initialisation fails => crash the application.
+// Initialize the environment variables needed to create tokens.
+// If initialization fails => crash the application.
 func init() {
 	tokenRefreshExpireHours, err := strconv.Atoi(os.Getenv("TOKEN_REFRESH_EXPIRE_HOURS"))
 	if err != nil {

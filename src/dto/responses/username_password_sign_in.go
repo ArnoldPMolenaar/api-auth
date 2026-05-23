@@ -2,9 +2,10 @@ package responses
 
 import (
 	"api-auth/main/src/models"
-	util "github.com/ArnoldPMolenaar/api-utils/utils"
-	"github.com/golang-jwt/jwt/v5"
 	"time"
+
+	"github.com/ArnoldPMolenaar/api-utils/utils"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 type UsernamePasswordSignIn struct {
@@ -29,7 +30,7 @@ func (u *UsernamePasswordSignIn) SetUsernamePasswordSignIn(
 	u.ID = user.ID
 	u.Username = user.Username
 	u.Email = user.Email
-	u.PhoneNumber = user.PhoneNumber
+	u.PhoneNumber = utils.PtrFromNullString(user.PhoneNumber)
 	u.IsTempPassword = user.IsTempPassword
 	u.EmailVerifiedAt = func() *time.Time {
 		if user.EmailVerifiedAt.Valid {
@@ -52,8 +53,8 @@ func (u *UsernamePasswordSignIn) SetUsernamePasswordSignIn(
 	u.Apps = map[string]map[string][]string{}
 
 	for i := range user.AppRoles {
-		var appName = util.PascalCaseToCamelcase(user.AppRoles[i].AppName)
-		var roleName = util.PascalCaseToCamelcase(user.AppRoles[i].RoleName)
+		var appName = utils.PascalCaseToCamelcase(user.AppRoles[i].AppName)
+		var roleName = utils.PascalCaseToCamelcase(user.AppRoles[i].RoleName)
 		if _, ok := u.Apps[appName]; !ok {
 			u.Apps[appName] = map[string][]string{}
 		}

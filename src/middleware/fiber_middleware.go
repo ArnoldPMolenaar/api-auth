@@ -1,13 +1,32 @@
 package middleware
 
 import (
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/cors"
-	"github.com/gofiber/fiber/v2/middleware/logger"
-	"github.com/gofiber/fiber/v2/middleware/recover"
 	"os"
 	"strings"
+
+	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/middleware/cors"
+	"github.com/gofiber/fiber/v3/middleware/logger"
+	"github.com/gofiber/fiber/v3/middleware/recover"
 )
+
+func csvEnvList(key string) []string {
+	value := strings.TrimSpace(os.Getenv(key))
+	if value == "" {
+		return []string{}
+	}
+
+	parts := strings.Split(value, ",")
+	result := make([]string, 0, len(parts))
+	for _, part := range parts {
+		trimmed := strings.TrimSpace(part)
+		if trimmed != "" {
+			result = append(result, trimmed)
+		}
+	}
+
+	return result
+}
 
 // FiberMiddleware provide Fiber's built-in middlewares.
 // See: https://docs.gofiber.io/api/middleware
@@ -15,15 +34,15 @@ func FiberMiddleware(a *fiber.App) {
 	a.Use(
 		// Add CORS to each route.
 		cors.New(cors.Config{
-			AllowOrigins: os.Getenv("CORS_ALLOW_ORIGINS"),
-			AllowMethods: strings.Join([]string{
+			AllowOrigins: csvEnvList("CORS_ALLOW_ORIGINS"),
+			AllowMethods: []string{
 				fiber.MethodGet,
 				fiber.MethodPost,
-				fiber.MethodPut,
+				fiber.MethodPatch,
 				fiber.MethodHead,
 				fiber.MethodOptions,
-			}, ","),
-			AllowHeaders:     "Accept,Content-Type,Authorization",
+			},
+			AllowHeaders:     csvEnvList("CORS_ALLOW_HEADERS"),
 			AllowCredentials: true,
 		}),
 

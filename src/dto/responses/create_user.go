@@ -1,6 +1,10 @@
 package responses
 
-import "api-auth/main/src/models"
+import (
+	"api-auth/main/src/models"
+
+	"github.com/ArnoldPMolenaar/api-utils/utils"
+)
 
 // CreateUser struct for creating a user response.
 type CreateUser struct {
@@ -18,7 +22,7 @@ func (u *CreateUser) SetCreateUser(user *models.User) {
 	u.ID = user.ID
 	u.Username = user.Username
 	u.Email = user.Email
-	u.PhoneNumber = user.PhoneNumber
+	u.PhoneNumber = utils.PtrFromNullString(user.PhoneNumber)
 	u.Roles = []AppRole{}
 	u.Recipes = []AppRecipe{}
 

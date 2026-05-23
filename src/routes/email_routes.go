@@ -3,7 +3,8 @@ package routes
 import (
 	"api-auth/main/src/controllers"
 	"api-auth/main/src/middleware"
-	"github.com/gofiber/fiber/v2"
+
+	"github.com/gofiber/fiber/v3"
 )
 
 // EmailRoutes func for describe group of private routes.
@@ -14,6 +15,6 @@ func EmailRoutes(a *fiber.App) {
 	// Register a route for GET /v1/token/email/verify.
 	route.Get("/verify", middleware.EmailProtected(), controllers.TokenEmailVerificationVerify)
 
-	// Register a route for PUT /v1/token/email/verification.
-	route.Put("/verification", middleware.EmailProtected(), controllers.UpdateUserEmailVerification)
+	// Register a route for POST /v1/token/email/verification.
+	route.Post("/verification", middleware.EmailProtected(), controllers.UpdateUserEmailVerification)
 }

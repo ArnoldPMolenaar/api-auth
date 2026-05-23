@@ -8,11 +8,11 @@ import (
 
 type User struct {
 	gorm.Model
-	Username          string  `gorm:"not null;uniqueIndex:uni_username_app_name"`
-	Email             string  `gorm:"not null;uniqueIndex:uni_email_app_name"`
-	PhoneNumber       *string `gorm:"null;uniqueIndex:uni_phone_app_name"`
-	AppName           string  `gorm:"not null;uniqueIndex:uni_username_app_name;uniqueIndex:uni_email_app_name;uniqueIndex:uni_phone_app_name"`
-	Password          string  `gorm:"not null"`
+	Username          string         `gorm:"not null;uniqueIndex:uni_username_app_name"`
+	Email             string         `gorm:"not null;uniqueIndex:uni_email_app_name"`
+	PhoneNumber       sql.NullString `gorm:"null;uniqueIndex:uni_phone_app_name"`
+	AppName           string         `gorm:"not null;uniqueIndex:uni_username_app_name;uniqueIndex:uni_email_app_name;uniqueIndex:uni_phone_app_name"`
+	Password          string         `gorm:"not null"`
 	EmailVerifiedAt   sql.NullTime
 	PhoneVerifiedAt   sql.NullTime
 	PasswordChangedAt sql.NullTime

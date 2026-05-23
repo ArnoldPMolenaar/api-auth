@@ -3,6 +3,8 @@ package responses
 import (
 	"api-auth/main/src/models"
 	"time"
+
+	"github.com/ArnoldPMolenaar/api-utils/utils"
 )
 
 type UserActivity struct {
@@ -31,7 +33,7 @@ func (u *User) SetUser(user *models.User) {
 	u.ID = user.ID
 	u.Username = user.Username
 	u.Email = user.Email
-	u.PhoneNumber = user.PhoneNumber
+	u.PhoneNumber = utils.PtrFromNullString(user.PhoneNumber)
 	u.IsTempPassword = user.IsTempPassword
 	u.EmailVerifiedAt = func() *time.Time {
 		if user.EmailVerifiedAt.Valid {

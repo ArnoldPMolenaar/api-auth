@@ -5,14 +5,15 @@ import (
 	"api-auth/main/src/enums"
 	errorint "api-auth/main/src/errors"
 	"api-auth/main/src/services"
-	errorsutil "github.com/ArnoldPMolenaar/api-utils/errors"
-	"github.com/gofiber/fiber/v2"
 	"time"
+
+	errorsutil "github.com/ArnoldPMolenaar/api-utils/errors"
+	"github.com/gofiber/fiber/v3"
 )
 
 // PasswordProtected middleware checks if the password reset token is valid.
-func PasswordProtected() func(*fiber.Ctx) error {
-	return func(c *fiber.Ctx) error {
+func PasswordProtected() fiber.Handler {
+	return func(c fiber.Ctx) error {
 		// Get the token from the header.
 		resetToken, err := getTokenFromHeader(c)
 		if err != nil {
