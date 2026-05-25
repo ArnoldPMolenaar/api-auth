@@ -129,7 +129,7 @@ func getTokenFromHeader(c fiber.Ctx) (string, error) {
 	}
 
 	headerValues := strings.Fields(headerValue)
-	if len(headerValues) != 2 || strings.ToLower(headerValues[0]) != "bearer" {
+	if len(headerValues) != 2 || !strings.EqualFold(headerValues[0], "bearer") {
 		return "", errors.New(errorint.TokenNoBearerAuthorizationHeaderFormat)
 	}
 
