@@ -67,11 +67,11 @@ API default: `http://localhost:5001`
 ### Password token routes
 
 - `GET /v1/token/password/verify`
-- `POST /v1/token/password/reset`
+- `PATCH /v1/token/password/reset`
 
 ### Email token routes
 - `GET /v1/token/email/verify`
-- `POST /v1/token/email/verification`
+- `PATCH /v1/token/email/verification`
 
 ## 🤝 Contributing
 

@@ -15,6 +15,6 @@ func EmailRoutes(a *fiber.App) {
 	// Register a route for GET /v1/token/email/verify.
 	route.Get("/verify", middleware.EmailProtected(), controllers.TokenEmailVerificationVerify)
 
-	// Register a route for POST /v1/token/email/verification.
-	route.Post("/verification", middleware.EmailProtected(), controllers.UpdateUserEmailVerification)
+	// Register a route for PATCH /v1/token/email/verification.
+	route.Patch("/verification", middleware.EmailProtected(), controllers.UpdateUserEmailVerification)
 }

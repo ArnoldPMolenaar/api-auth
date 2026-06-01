@@ -15,6 +15,6 @@ func PasswordRoutes(a *fiber.App) {
 	// Register a route for GET /v1/token/password/verify.
 	route.Get("/verify", middleware.PasswordProtected(), controllers.TokenPasswordResetVerify)
 
-	// Register a route for POST /v1/token/password/reset.
-	route.Post("/reset", middleware.PasswordProtected(), controllers.UpdateUserPasswordReset)
+	// Register a route for PATCH /v1/token/password/reset.
+	route.Patch("/reset", middleware.PasswordProtected(), controllers.UpdateUserPasswordReset)
 }
