@@ -440,7 +440,7 @@ func UpdateUser(user *models.User, requestUser *requests.UpdateUser, apps []stri
 	if requestUser.Email != user.Email {
 		user.EmailVerifiedAt = sql.NullTime{}
 	}
-	if (requestUser.PhoneNumber == nil && user.PhoneNumber.Valid) || (*requestUser.PhoneNumber != user.PhoneNumber.String) {
+	if (requestUser.PhoneNumber == nil && user.PhoneNumber.Valid) || (requestUser.PhoneNumber != nil && *requestUser.PhoneNumber != user.PhoneNumber.String) {
 		user.PhoneVerifiedAt = sql.NullTime{}
 	}
 
@@ -556,7 +556,7 @@ func UpdateUserSignedIn(user *models.User, requestUser *requests.UpdateUserSigne
 	if requestUser.Email != user.Email {
 		user.EmailVerifiedAt = sql.NullTime{}
 	}
-	if (requestUser.PhoneNumber == nil && user.PhoneNumber.Valid) || (*requestUser.PhoneNumber != user.PhoneNumber.String) {
+	if (requestUser.PhoneNumber == nil && user.PhoneNumber.Valid) || (requestUser.PhoneNumber != nil && *requestUser.PhoneNumber != user.PhoneNumber.String) {
 		user.PhoneVerifiedAt = sql.NullTime{}
 	}
 
